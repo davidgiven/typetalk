@@ -16,6 +16,7 @@ let compilationOptions = {
 
 let languageServiceHost = new class LanguageServiceHost {
     private files = new Map<string, VirtualFile>();
+    private changedFiles = new Set<string>();
     private projectVersion = 0;
 
     getScriptFileNames(): string[] {
@@ -75,6 +76,14 @@ let languageServiceHost = new class LanguageServiceHost {
         file.contents = contents;
         file.version++;
         this.projectVersion++;
+
+        this.changedFiles.add(path);
+    }
+
+    getChangedFiles(): Set<string> {
+        let changed = this.changedFiles;
+        this.changedFiles = new Set<string>();
+        return changed;
     }
 
     trace = console.log;
@@ -86,43 +95,39 @@ let languageServices = ts.createLanguageService(
 );
 
 languageServiceHost.writeFile("blah.ts", `
-class Bling {
+enum Counter {
+    ONE,
+    THREE
 }
 `);
 languageServiceHost.writeFile("fnord.ts", `
-class Fnord {
-    floo() {
-        console.log(7);
-    }
-
-    bar() {
-    }
-}
-
-class Blah extends Fnord {
-    floo() {
-        super.floo();
+class Blah {
+    floo(): Counter {
+        return Counter.THREE;
     }
 }
 
 `);
 
 function emitAll() {
-    for (let tsf of languageServiceHost.getScriptFileNames()) {
-        let output = languageServices.getEmitOutput(tsf);
-        if (!output.emitSkipped) {
-            for (let f of output.outputFiles) {
-                console.log(`name: ${f.name}`);
-                console.log(f.text);
+    languageServiceHost.getChangedFiles().forEach(
+        (tsf) => {
+            let output = languageServices.getEmitOutput(tsf);
+            if (!output.emitSkipped) {
+                for (let f of output.outputFiles) {
+                    console.log(`name: ${f.name}`);
+                    console.log(f.text);
+                }
             }
-        }
-    }
+        });
 }
 emitAll();
 
 languageServiceHost.writeFile("blah.ts", `
-class Bling {
-    mnmnmn() {}
+enum Counter {
+    ONE,
+    TWO,
+    THREE
 }
 `);
 emitAll();
