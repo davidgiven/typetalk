@@ -80,6 +80,14 @@ let sys = new class System {
         return watcher;
     }
 
+    setTimeout?(callback: (...args: any[]) => void, ms: number, ...args: any[]): any {
+        return window.setTimeout(callback, ms, args);
+    }
+
+    clearTimeout?(timeoutId: any): void {
+        window.clearTimeout(timeoutId);
+    }
+
     getDefaultLibFileName(): string { return "lib.d.ts"; }
     useCaseSensitiveFileNames() { return false; }
     getCanonicalFileName(fileName) { return fileName; }
@@ -101,18 +109,17 @@ let sys = new class System {
     }
 })();
 
-let src =`
+
+sys.writeFile("fnord.ts", `
 class Fnord {
     floo() {
         console.log(7);
     }
 }
-`;
+`);
 
-sys.writeFile("fnord.ts", src);
-
-function reportDiagnostic(message: string) {
-    console.log(`diagnostic: ${JSON.stringify(message)}`);
+function reportDiagnostic(diagnostic: any) {
+    console.log(`diagnostic: ${diagnostic.messageText}`);
 }
 
 function reportWatchStatusChanged(message: string) {
@@ -124,7 +131,8 @@ const host = ts.createWatchCompilerHost(
     {
         target: ts.ScriptTarget.ES5,
     	strict: true,
-    	suppressOutputPathCheck: false
+        suppressOutputPathCheck: false,
+        extendedDiagnostics: true,
     },
     sys,
     ts.createEmitAndSemanticDiagnosticsBuilderProgram,
@@ -134,6 +142,24 @@ const host = ts.createWatchCompilerHost(
 host.writeFile = function(path: string, value: string) {
     console.log(`writing result program ${path} = ${value}`);
 }
+host.trace = console.log
 
 ts.createWatchProgram(host);
-sys.writeFile("fnord.ts", src);
+
+sys.writeFile("fnord.ts", `
+class Fnord {
+    floo() {
+        console.log(7);
+    }
+
+    bar() {
+    }
+}
+
+class Blah extends Fnord {
+    floo() {
+        super.floo();
+    }
+}
+
+`);
