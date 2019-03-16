@@ -2,7 +2,7 @@ let ts = (window as any).ts;
 
 class VirtualFile {
     name: string;
-    contents: string;
+    typescript: string;
     version: number = 0;
 }
 
@@ -39,7 +39,7 @@ let languageServiceHost = new class LanguageServiceHost {
 
     readFile(path: string): string {
         let file = this.files.get(path);
-        return (file == undefined) ? undefined : file.contents;
+        return (file == undefined) ? undefined : file.typescript;
     }
 
     getCurrentDirectory(): string {
@@ -51,7 +51,7 @@ let languageServiceHost = new class LanguageServiceHost {
     }
 
     getDefaultLibFileName(options: any): string {
-        return "lib.ts.d";
+        return "lib.d.ts";
     }
 
     fileExists(path: string): boolean {
@@ -62,9 +62,7 @@ let languageServiceHost = new class LanguageServiceHost {
         throw "readDirectory not supported";
     }
 
-    writeFile(path: string, contents: string) {
-        console.log(`writing ${path}`);
-
+    resolveFile(path: string): VirtualFile {
         let file = this.files.get(path);
         if (file == undefined) {
             file = new VirtualFile();
@@ -72,8 +70,14 @@ let languageServiceHost = new class LanguageServiceHost {
             this.files.set(path, file);
             this.projectVersion++;
         }
+        return file;
+    }
 
-        file.contents = contents;
+    writeFile(path: string, contents: string) {
+        console.log(`writing typescript ${path}`);
+
+        let file = this.resolveFile(path);
+        file.typescript = contents;
         file.version++;
         this.projectVersion++;
 
@@ -94,40 +98,70 @@ let languageServices = ts.createLanguageService(
     ts.createDocumentRegistry()
 );
 
-languageServiceHost.writeFile("blah.ts", `
-enum Counter {
-    ONE,
-    THREE
-}
-`);
-languageServiceHost.writeFile("fnord.ts", `
-class Blah {
-    floo(): Counter {
-        return Counter.THREE;
+(function () {
+    let scripts = document.getElementsByTagName("SCRIPT");
+    for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i];
+        if (script.getAttribute("type") == "typescript-lib") {
+            let leafName: string = (script as any).leafName;
+            if (leafName.startsWith("lib.")) {
+                languageServiceHost.writeFile(leafName, (script as any).text);
+            }
+        }
     }
-}
+})();
 
+let context = {
+    __extends: __extends,
+    document: document,
+    window: window
+};
+
+languageServiceHost.writeFile("definition.ts", `
+enum SuperEnum { ONE, THREE, TWO };
+class Super {
+    m1() { console.log("print"); }
+};
+`);
+languageServiceHost.writeFile("dependent.ts", `
+class Sub extends Super {
+    m2() { console.log(SuperEnum.TWO); }
+};
+
+class Subber extends Sub {
+    m1() { super.m1(); }
+};
 `);
 
 function emitAll() {
+    console.log("performing emit");
     languageServiceHost.getChangedFiles().forEach(
         (tsf) => {
-            let output = languageServices.getEmitOutput(tsf);
-            if (!output.emitSkipped) {
-                for (let f of output.outputFiles) {
-                    console.log(`name: ${f.name}`);
-                    console.log(f.text);
+            console.log("checking for errors");
+            let diagnostics = languageServices
+                .getCompilerOptionsDiagnostics()
+                .concat(languageServices.getSyntacticDiagnostics(tsf))
+                .concat(languageServices.getSemanticDiagnostics(tsf));
+            diagnostics.forEach(d => {
+                console.log(d.messageText);
+            });
+            if (diagnostics.length == 0) {
+                let output = languageServices.getEmitOutput(tsf);
+                if (!output.emitSkipped) {
+                    for (let f of output.outputFiles) {
+                        console.log(`name: ${f.name}`);
+                        console.log(f.text);
+                    }
                 }
             }
         });
 }
 emitAll();
 
-languageServiceHost.writeFile("blah.ts", `
-enum Counter {
-    ONE,
-    TWO,
-    THREE
-}
-`);
-emitAll();
+//languageServiceHost.writeFile("definition.ts", `
+//enum SuperEnum { ONE, TWO, THREE };
+//class Super {
+//    m1() { console.log("frug"); }
+//}
+//`);
+//emitAll();
