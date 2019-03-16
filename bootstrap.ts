@@ -2,8 +2,60 @@ let ts = (window as any).ts;
 
 class VirtualFile {
     name: string;
-    typescript: string;
+    contents: string;
     version: number = 0;
+}
+
+class VirtualFileSystem {
+    private files = new Map<string, VirtualFile>();
+    private changedFiles = new Set<VirtualFile>();
+
+    getFilenames(): Set<string> {
+        return new Set(this.files.keys());
+    }
+
+    fileExists(path: string): boolean {
+        return this.files.has(path);
+    }
+
+    readFile(path: string): string {
+        let file = this.files.get(path);
+        return (file == undefined) ? undefined : file.contents;
+    }
+
+    resolveFile(path: string): VirtualFile {
+        let file = this.files.get(path);
+        if (file == undefined) {
+            file = new VirtualFile();
+            file.name = path;
+            this.files.set(path, file);
+        }
+        return file;
+    }
+
+    writeFile(path: string, contents: string) {
+        let file = this.resolveFile(path);
+        if (file.contents !== contents) {
+            file.contents = contents;
+            file.version++;
+            this.changedFiles.add(file);
+        }
+    }
+
+    getFileVersion(path: string): number {
+        let file = this.resolveFile(path);
+        return (file == undefined) ? undefined : file.version;
+    }
+
+    getChangedFiles(): Set<VirtualFile> {
+        let changed = this.changedFiles;
+        this.changedFiles = new Set<VirtualFile>();
+        return changed;
+    }
+
+    resetChangedFiles(): void {
+        this.changedFiles = new Set<VirtualFile>();
+    }
 }
 
 let compilationOptions = {
@@ -14,18 +66,16 @@ let compilationOptions = {
     noEmitHelpers: true,
 };
 
-let languageServiceHost = new class LanguageServiceHost {
-    private files = new Map<string, VirtualFile>();
-    private changedFiles = new Set<string>();
+let languageServiceHost = new class LanguageServiceHost extends VirtualFileSystem {
+    private vfs = new VirtualFileSystem();
     private projectVersion = 0;
 
     getScriptFileNames(): string[] {
-        return Array.from(this.files.keys());
+        return Array.from(this.getFilenames());
     }
 
     getScriptVersion(path: string): number {
-        let file = this.files.get(path);
-        return (file == undefined) ? undefined : file.version;
+        return this.getFileVersion(path);
     }
 
     getProjectVersion(): number {
@@ -35,11 +85,6 @@ let languageServiceHost = new class LanguageServiceHost {
     getScriptSnapshot(path: string): any {
         let data = this.readFile(path);
         return (data == undefined) ? undefined : ts.ScriptSnapshot.fromString(data);
-    }
-
-    readFile(path: string): string {
-        let file = this.files.get(path);
-        return (file == undefined) ? undefined : file.typescript;
     }
 
     getCurrentDirectory(): string {
@@ -54,40 +99,13 @@ let languageServiceHost = new class LanguageServiceHost {
         return "lib.d.ts";
     }
 
-    fileExists(path: string): boolean {
-        return this.files.has(path);
-    }
-
     readDirectory(path: string) {
         throw "readDirectory not supported";
     }
 
-    resolveFile(path: string): VirtualFile {
-        let file = this.files.get(path);
-        if (file == undefined) {
-            file = new VirtualFile();
-            file.name = path;
-            this.files.set(path, file);
-            this.projectVersion++;
-        }
-        return file;
-    }
-
     writeFile(path: string, contents: string) {
-        console.log(`writing typescript ${path}`);
-
-        let file = this.resolveFile(path);
-        file.typescript = contents;
-        file.version++;
+        super.writeFile(path, contents);
         this.projectVersion++;
-
-        this.changedFiles.add(path);
-    }
-
-    getChangedFiles(): Set<string> {
-        let changed = this.changedFiles;
-        this.changedFiles = new Set<string>();
-        return changed;
     }
 
     trace = console.log;
@@ -111,11 +129,56 @@ let languageServices = ts.createLanguageService(
     }
 })();
 
+let compiledFiles = new VirtualFileSystem();
+
 let context = {
     __extends: __extends,
     document: document,
     window: window
 };
+
+function reloadFile(file: VirtualFile) {
+    console.log(`loading ${file.name}`);
+    let ctx = Object.create(context);
+    let f = new Function(file.contents).bind(context);
+    f();
+    for (let k in Object.keys(ctx)) {
+        console.log(`found: ${k}`);
+    }
+}
+
+function recompile() {
+    let files = languageServiceHost.getChangedFiles();
+    let errors = false;
+    files.forEach(
+        (file) => {
+            let diagnostics = languageServices
+                .getCompilerOptionsDiagnostics()
+                .concat(languageServices.getSyntacticDiagnostics(file.name))
+                .concat(languageServices.getSemanticDiagnostics(file.name));
+            diagnostics.forEach(d => {
+                console.log(d.messageText);
+            });
+            if (diagnostics.length == 0) {
+                let output = languageServices.getEmitOutput(file.name);
+                if (!output.emitSkipped) {
+                    for (let f of output.outputFiles) {
+                        compiledFiles.writeFile(f.name, f.text);
+                    }
+                }
+            } else {
+                errors = true;
+            }
+        });
+
+    if (errors)
+        console.log("compilation failed");
+    else {
+        languageServiceHost.resetChangedFiles();
+        compiledFiles.getChangedFiles().forEach(reloadFile);
+        compiledFiles.resetChangedFiles();
+    }
+}
 
 languageServiceHost.writeFile("definition.ts", `
 enum SuperEnum { ONE, THREE, TWO };
@@ -133,30 +196,7 @@ class Subber extends Sub {
 };
 `);
 
-function emitAll() {
-    console.log("performing emit");
-    languageServiceHost.getChangedFiles().forEach(
-        (tsf) => {
-            console.log("checking for errors");
-            let diagnostics = languageServices
-                .getCompilerOptionsDiagnostics()
-                .concat(languageServices.getSyntacticDiagnostics(tsf))
-                .concat(languageServices.getSemanticDiagnostics(tsf));
-            diagnostics.forEach(d => {
-                console.log(d.messageText);
-            });
-            if (diagnostics.length == 0) {
-                let output = languageServices.getEmitOutput(tsf);
-                if (!output.emitSkipped) {
-                    for (let f of output.outputFiles) {
-                        console.log(`name: ${f.name}`);
-                        console.log(f.text);
-                    }
-                }
-            }
-        });
-}
-emitAll();
+recompile();
 
 //languageServiceHost.writeFile("definition.ts", `
 //enum SuperEnum { ONE, TWO, THREE };
