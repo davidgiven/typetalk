@@ -20,7 +20,8 @@
     for (var i = 0; i < allscripts.length; i++) {
         (function () {
             var script = allscripts[i];
-            if (script.getAttribute("type") == "typescript-lib") {
+            var type = script.getAttribute("type");
+            if (type && type.startsWith("typetalk-")) {
                 remaining++;
                 var x = new XMLHttpRequest();
                 x.onreadystatechange = function () {

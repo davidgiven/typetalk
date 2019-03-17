@@ -3,8 +3,9 @@ let ts = (window as any).ts;
 let ttcontext: any = {
    __extends: (document as any).__extends,
    document: document,
-   window: window
+   window: window,
 };
+ttcontext.globals = ttcontext;
 
 function updateClass(oldClass: any|null, newClass: any): any {
     if (oldClass != null) {
@@ -72,12 +73,9 @@ let classRegistry = new class {
             console.log(`loading ${ttclass.className}`);
 
             let ctx = Object.create(ttcontext);
-            let body = `
-                with (this) {
-                    ${ttclass.javascript}
-                    return ${ttclass.className};
-                }
-            `
+            let body = `with (this) {\n\n${ttclass.javascript}\n\n` +
+                `return ${ttclass.className}; }\n` +
+                `//# sourceURL=${ttclass.className}.js`;
             let fn = new Function(body).bind(ctx);
             let createdClass = fn();
 
@@ -157,38 +155,6 @@ let languageServices = ts.createLanguageService(
     ts.createDocumentRegistry()
 );
 
-(function () {
-    let scripts = document.getElementsByTagName("SCRIPT");
-    for (let i = 0; i < scripts.length; i++) {
-        let script = scripts[i];
-        if (script.getAttribute("type") == "typescript-lib") {
-            let leafName: string = (script as any).leafName;
-            if (leafName.startsWith("lib.")) {
-                languageServiceHost.addLibrary(leafName, (script as any).text);
-            }
-        }
-    }
-})();
-
-classRegistry.set("Animal", null, `
-class Animal {
-    noise() { console.log("mu"); }
-    move() { console.log("slither"); }
-}
-`);
-
-classRegistry.set("Dog", "Animal", `
-class Dog extends Animal {
-    noise() { console.log("woof"); }
-}
-`);
-
-classRegistry.set("Badger", "Animal", `
-class Badger extends Animal {
-    noise() { console.log("grunt"); }
-}
-`);
-
 function recompile() {
     let errors = false;
     classRegistry.getAllClasses()
@@ -222,18 +188,28 @@ function recompile() {
         classRegistry.reloadJavascript();
 }
 
+(function () {
+    let scripts = document.getElementsByTagName("SCRIPT");
+    for (let i = 0; i < scripts.length; i++) {
+        let script: any = scripts[i];
+        switch (script.getAttribute("type")) {
+            case "typetalk-lib":
+                languageServiceHost.addLibrary(script.leafName, script.text);
+                break;
+
+            case "typetalk-src": {
+                let matches = /(?:class|interface) (\w+)(?: +extends (\w+))?/.exec(script.text);
+                if (!matches)
+                    throw `script ${script.leafName} did not contain a parseable class`;
+                let className = matches[1];
+                let superclassName = matches[2] || null;
+                classRegistry.set(className, superclassName, script.text);
+            }
+        }
+    }
+})();
+
 recompile();
 
-let a: any = new ttcontext.Dog();
-a.noise();
-a.move();
-
-classRegistry.set("Dog", "Animal", `
-class Dog extends Animal {
-    noise() { console.log("LOUDER WOOF"); }
-    move() { console.log("bounces"); }
-}
-`);
-recompile();
-a.noise();
-a.move();
+let browser = new ttcontext.Browser();
+browser.start();
