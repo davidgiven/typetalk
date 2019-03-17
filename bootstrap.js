@@ -6,8 +6,13 @@
     function loaded_cb() {
         if ((remaining == 0) && (window.ts != undefined)) {
             var ts = scripts["bootstrap.ts"].text;
-            var js = window.ts.transpile(ts);
-            new Function(js)();
+            var js = window.ts.transpileModule(ts, {
+                extendedDiagnostics: true,
+                noEmitHelpers: true,
+                strict: true,
+                target: window.ts.ScriptTarget.ES2015,
+            });
+            new Function(js.outputText)();
         }
     }
 

@@ -1,90 +1,136 @@
 let ts = (window as any).ts;
 
-class VirtualFile {
-    name: string;
-    contents: string;
-    version: number = 0;
-}
-
-class VirtualFileSystem {
-    private files = new Map<string, VirtualFile>();
-    private changedFiles = new Set<VirtualFile>();
-
-    getFilenames(): Set<string> {
-        return new Set(this.files.keys());
-    }
-
-    fileExists(path: string): boolean {
-        return this.files.has(path);
-    }
-
-    readFile(path: string): string {
-        let file = this.files.get(path);
-        return (file == undefined) ? undefined : file.contents;
-    }
-
-    resolveFile(path: string): VirtualFile {
-        let file = this.files.get(path);
-        if (file == undefined) {
-            file = new VirtualFile();
-            file.name = path;
-            this.files.set(path, file);
-        }
-        return file;
-    }
-
-    writeFile(path: string, contents: string) {
-        let file = this.resolveFile(path);
-        if (file.contents !== contents) {
-            file.contents = contents;
-            file.version++;
-            this.changedFiles.add(file);
-        }
-    }
-
-    getFileVersion(path: string): number {
-        let file = this.resolveFile(path);
-        return (file == undefined) ? undefined : file.version;
-    }
-
-    getChangedFiles(): Set<VirtualFile> {
-        let changed = this.changedFiles;
-        this.changedFiles = new Set<VirtualFile>();
-        return changed;
-    }
-
-    resetChangedFiles(): void {
-        this.changedFiles = new Set<VirtualFile>();
-    }
-}
-
-let compilationOptions = {
-    target: ts.ScriptTarget.ES5,
-    strict: true,
-    suppressOutputPathCheck: false,
-    extendedDiagnostics: true,
-    noEmitHelpers: true,
+let ttcontext: any = {
+   __extends: (document as any).__extends,
+   document: document,
+   window: window
 };
 
-let languageServiceHost = new class LanguageServiceHost extends VirtualFileSystem {
-    private vfs = new VirtualFileSystem();
+function updateClass(oldClass: any|null, newClass: any): any {
+    if (oldClass != null) {
+        Object.getOwnPropertyNames(newClass.prototype)
+            .forEach(
+                (methodName) => {
+                    console.log(`patching ${methodName}`);
+                    oldClass.prototype[methodName] = newClass.prototype[methodName];
+                });
+
+        newClass.prototype = oldClass.prototype;
+    }
+    return newClass;
+}
+
+class TTClass {
+    className: string;
+    superclassName: string | null = null;
+    typescript = "";
+    typescriptVersion = 0;
+    javascript = "";
+    javascriptDirty = false;
+
+    constructor(className: string) {
+        this.className = className;
+    }
+};
+
+let classRegistry = new class {
+    private classes = new Map<string, TTClass>();
     private projectVersion = 0;
 
-    getScriptFileNames(): string[] {
-        return Array.from(this.getFilenames());
-    }
-
-    getScriptVersion(path: string): number {
-        return this.getFileVersion(path);
+    resolve(className: string): TTClass {
+        let ttclass = this.classes.get(className);
+        if (ttclass == undefined) {
+            ttclass = new TTClass(className);
+            this.classes.set(className, ttclass);
+        }
+        return ttclass;
     }
 
     getProjectVersion(): number {
         return this.projectVersion;
     }
 
-    getScriptSnapshot(path: string): any {
-        let data = this.readFile(path);
-        return (data == undefined) ? undefined : ts.ScriptSnapshot.fromString(data);
+    getAllClasses(): TTClass[] {
+        return Array.from(this.classes.values());
+    }
+
+    set(className: string, superclassName: string | null, source: string): void {
+        let ttclass = this.resolve(className);
+        ttclass.superclassName = superclassName;
+        ttclass.typescript = source;
+        ttclass.typescriptVersion++;
+        ttclass.javascriptDirty = true;
+        this.projectVersion++;
+    }
+
+    reloadJavascript(): void {
+        let reloadRecursively = (ttclass: TTClass) => {
+            if (!ttclass.javascriptDirty)
+                return;
+            if (ttclass.superclassName != null)
+                reloadRecursively(this.resolve(ttclass.superclassName));
+            console.log(`loading ${ttclass.className}`);
+
+            let ctx = Object.create(ttcontext);
+            let body = `
+                with (this) {
+                    ${ttclass.javascript}
+                    return ${ttclass.className};
+                }
+            `
+            let fn = new Function(body).bind(ctx);
+            let createdClass = fn();
+
+            ttcontext[ttclass.className] = updateClass(ttcontext[ttclass.className], createdClass);
+            ttclass.javascriptDirty = false;
+        };
+
+        this.getAllClasses()
+            .filter(ttclass => ttclass.javascriptDirty)
+            .forEach(reloadRecursively);
+    }
+};
+
+let compilationOptions = {
+    target: ts.ScriptTarget.ES2015,
+    strict: true,
+    suppressOutputPathCheck: false,
+    extendedDiagnostics: true,
+    noEmitHelpers: true,
+};
+
+let languageServiceHost = new class LanguageServiceHost {
+    private libraries = new Map<string, string>();
+
+    private classOfFile(path: string): TTClass {
+        return classRegistry.resolve(path.replace(/\.ts$/, ""));
+    }
+
+    addLibrary(path: string, contents: string) {
+        this.libraries.set(path, contents);
+    }
+
+    getScriptFileNames(): string[] {
+        return classRegistry.getAllClasses()
+            .map(ttclass => `${ttclass.className}.ts`)
+            .concat(Array.from(this.libraries.keys()));
+    }
+
+    getScriptVersion(path: string): number {
+        if (this.libraries.has(path))
+            return 0;
+        return this.classOfFile(path).typescriptVersion;
+    }
+
+    getProjectVersion(): number {
+        return classRegistry.getProjectVersion();
+    }
+
+    getScriptSnapshot(path: string): string {
+        let text = this.libraries.get(path);
+        if (text == undefined)
+            text = this.classOfFile(path).typescript;
+        return ts.ScriptSnapshot.fromString(text);
     }
 
     getCurrentDirectory(): string {
@@ -103,11 +149,6 @@ let languageServiceHost = new class LanguageServiceHost extends VirtualFileSyste
         throw "readDirectory not supported";
     }
 
-    writeFile(path: string, contents: string) {
-        super.writeFile(path, contents);
-        this.projectVersion++;
-    }
-
     trace = console.log;
 };
 
@@ -123,85 +164,76 @@ let languageServices = ts.createLanguageService(
         if (script.getAttribute("type") == "typescript-lib") {
             let leafName: string = (script as any).leafName;
             if (leafName.startsWith("lib.")) {
-                languageServiceHost.writeFile(leafName, (script as any).text);
+                languageServiceHost.addLibrary(leafName, (script as any).text);
             }
         }
     }
 })();
 
-let compiledFiles = new VirtualFileSystem();
-
-let context = {
-    __extends: __extends,
-    document: document,
-    window: window
-};
-
-function reloadFile(file: VirtualFile) {
-    console.log(`loading ${file.name}`);
-    let ctx = Object.create(context);
-    let f = new Function(file.contents).bind(context);
-    f();
-    for (let k in Object.keys(ctx)) {
-        console.log(`found: ${k}`);
-    }
+classRegistry.set("Animal", null, `
+class Animal {
+    noise() { console.log("mu"); }
+    move() { console.log("slither"); }
 }
+`);
+
+classRegistry.set("Dog", "Animal", `
+class Dog extends Animal {
+    noise() { console.log("woof"); }
+}
+`);
+
+classRegistry.set("Badger", "Animal", `
+class Badger extends Animal {
+    noise() { console.log("grunt"); }
+}
+`);
 
 function recompile() {
-    let files = languageServiceHost.getChangedFiles();
     let errors = false;
-    files.forEach(
-        (file) => {
-            let diagnostics = languageServices
-                .getCompilerOptionsDiagnostics()
-                .concat(languageServices.getSyntacticDiagnostics(file.name))
-                .concat(languageServices.getSemanticDiagnostics(file.name));
-            diagnostics.forEach(d => {
-                console.log(d.messageText);
-            });
-            if (diagnostics.length == 0) {
-                let output = languageServices.getEmitOutput(file.name);
+    classRegistry.getAllClasses()
+        .filter(ttclass => ttclass.javascriptDirty)
+        .forEach(
+            (ttclass) => {
+                let filename = `${ttclass.className}.ts`;
+
+                languageServices
+                    .getCompilerOptionsDiagnostics()
+                    .concat(languageServices.getSyntacticDiagnostics(filename))
+                    .concat(languageServices.getSemanticDiagnostics(filename))
+                    .forEach((d: any) => {
+                        console.log(d.messageText);
+                        errors = true;
+                    });
+
+                let output = languageServices.getEmitOutput(filename);
                 if (!output.emitSkipped) {
                     for (let f of output.outputFiles) {
-                        compiledFiles.writeFile(f.name, f.text);
+                        if (f.name !== `${ttclass.className}.js`)
+                            throw `filename mismatch: got ${f.name}, expected ${filename}`;
+                        ttclass.javascript = f.text;
                     }
                 }
-            } else {
-                errors = true;
-            }
-        });
+            });
 
     if (errors)
         console.log("compilation failed");
-    else {
-        languageServiceHost.resetChangedFiles();
-        compiledFiles.getChangedFiles().forEach(reloadFile);
-        compiledFiles.resetChangedFiles();
-    }
+    else
+        classRegistry.reloadJavascript();
 }
-
-languageServiceHost.writeFile("definition.ts", `
-enum SuperEnum { ONE, THREE, TWO };
-class Super {
-    m1() { console.log("print"); }
-};
-`);
-languageServiceHost.writeFile("dependent.ts", `
-class Sub extends Super {
-    m2() { console.log(SuperEnum.TWO); }
-};
-
-class Subber extends Sub {
-    m1() { super.m1(); }
-};
-`);
 
 recompile();
 
-//languageServiceHost.writeFile("definition.ts", `
-//enum SuperEnum { ONE, TWO, THREE };
-//class Super {
-//    m1() { console.log("frug"); }
-//}
-//`);
-//emitAll();
+let a: any = new ttcontext.Dog();
+a.noise();
+a.move();
+
+classRegistry.set("Dog", "Animal", `
+class Dog extends Animal {
+    noise() { console.log("LOUDER WOOF"); }
+    move() { console.log("bounces"); }
+}
+`);
+recompile();
+a.noise();
+a.move();
