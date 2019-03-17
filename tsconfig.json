@@ -1,6 +1,9 @@
 {
     "compilerOptions": {
+        "jsx": "React",
+        "jsxFactory": "preact.h",
+        "noImplicitAny": false,
+        "strict": true,
         "target": "es2015",
-        "strict": true
     }
 }

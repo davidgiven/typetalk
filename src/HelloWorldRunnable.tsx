@@ -4,6 +4,7 @@ class HelloWorldRunnable extends Runnable {
     }
 
     run() {
+        let component = <p>Hello, world!</p>
         console.log("Hello, world!");
     }
 }

@@ -12,6 +12,7 @@
                 strict: true,
                 target: window.ts.ScriptTarget.ES2015,
             });
+            js.outputText += "\n//# sourceURL=bootstrap.js";
             new Function(js.outputText)();
         }
     }

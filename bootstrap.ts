@@ -95,13 +95,16 @@ let compilationOptions = {
     suppressOutputPathCheck: false,
     extendedDiagnostics: true,
     noEmitHelpers: true,
+    jsx: ts.JsxEmit.React,
+    jsxFactory: "preact.h",
+    noImplicitAny: false,
 };
 
 let languageServiceHost = new class LanguageServiceHost {
     private libraries = new Map<string, string>();
 
     private classOfFile(path: string): TTClass {
-        return classRegistry.resolve(path.replace(/\.ts$/, ""));
+        return classRegistry.resolve(path.replace(/\.tsx$/, ""));
     }
 
     addLibrary(path: string, contents: string) {
@@ -110,7 +113,7 @@ let languageServiceHost = new class LanguageServiceHost {
 
     getScriptFileNames(): string[] {
         return classRegistry.getAllClasses()
-            .map(ttclass => `${ttclass.className}.ts`)
+            .map(ttclass => `${ttclass.className}.tsx`)
             .concat(Array.from(this.libraries.keys()));
     }
 
@@ -161,7 +164,7 @@ function recompile() {
         .filter(ttclass => ttclass.javascriptDirty)
         .forEach(
             (ttclass) => {
-                let filename = `${ttclass.className}.ts`;
+                let filename = `${ttclass.className}.tsx`;
 
                 languageServices
                     .getCompilerOptionsDiagnostics()
