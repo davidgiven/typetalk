@@ -6,6 +6,7 @@ declare namespace preact {
 
 	interface PreactHTMLAttributes {
 		key?:string;
+		ref?:((e: Element)=>void);
 	}
 
 	interface VNode {
@@ -54,7 +55,7 @@ declare namespace preact {
 	function h<PropsType>(node:ComponentConstructor<PropsType, any>, params:PropsType, ...children:(JSX.Element|string)[]):JSX.Element;
 	function h(node:string, params:JSX.HTMLAttributes&JSX.SVGAttributes, ...children:(JSX.Element|string)[]):JSX.Element;
 
-	function render(node:JSX.Element, parent:Element, replace?:ChildNode|null):Element;
+	function render(node:JSX.Element, parent:Element, replace?:Element):Element;
 
 	function rerender():void;
 

@@ -1,18 +1,25 @@
 class Browser {
     private runnables = new Map<string, Runnable>();
+    private element?: Element;
 
     start(): void {
         console.log("Browser starting");
         this.findRunnables();
+
+        let ui = <div></div>
         for (let [name, runnable] of this.runnables) {
-            console.log(name);
+            ui.children.push(
+                <p><a href='#' onClick={() => runnable.run()}>{name}</a></p>
+            );
         }
 
-        preact.render(<p>This is Preact!</p>, document.body, document.body.lastChild);
+        this.element = preact.render(ui, document.body, this.element);
     }
 
     private findRunnables(): void {
         this.runnables.clear();
+        /* This is hacky and horrible; ideally we should query the class registry
+         * for this information. */
         for (let key in globals) {
             let value = globals[key];
             if (value && value.prototype && (value.prototype instanceof Runnable)) {

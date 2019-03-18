@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "jsx": "React",
+        "jsx": "react",
         "jsxFactory": "preact.h",
         "noImplicitAny": false,
         "strict": true,
