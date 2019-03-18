@@ -23,12 +23,30 @@ function updateClass(oldClass: any | null, newClass: any): any {
         return newClass;
     }
 
-    Object.getOwnPropertyNames(newClass.prototype)
-        .forEach(
-            (methodName) => {
-                console.log(`patching ${methodName}`);
-                oldClass.prototype[methodName] = newClass.prototype[methodName];
-            });
+    function patch(oldObj: any, newObj: any) {
+        Object.getOwnPropertyNames(newObj)
+            .forEach(
+                (methodName) => {
+                    console.log(`patching ${methodName}`);
+                    oldObj[methodName] = newObj[methodName];
+                });
+    }
+
+    /* Normal methods */
+    console.log("patching normal methods");
+    for (let methodName of Object.getOwnPropertyNames(newClass.prototype))
+        oldClass.prototype[methodName] = newClass.prototype[methodName];
+
+    /* Static methods */
+    console.log("patching static methods");
+    for (let methodName of Object.getOwnPropertyNames(newClass.prototype)) {
+        if (methodName !== "prototype") {
+            oldClass[methodName] = newClass[methodName];
+        }
+    }
+
+    /* Adjust superclass */
+    Object.setPrototypeOf(oldClass, Object.getPrototypeOf(newClass));
 
     return oldClass;
 }
