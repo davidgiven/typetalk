@@ -7,10 +7,12 @@
         if ((remaining == 0) && (window.ts != undefined)) {
             var ts = scripts["bootstrap.ts"].text;
             var js = window.ts.transpileModule(ts, {
-                extendedDiagnostics: true,
-                noEmitHelpers: true,
-                strict: true,
-                target: window.ts.ScriptTarget.ES2015,
+                compilerOptions: {
+                    extendedDiagnostics: true,
+                    noEmitHelpers: true,
+                    strict: true,
+                    target: window.ts.ScriptTarget.ES2015,
+                }
             });
             js.outputText += "\n//# sourceURL=bootstrap.js";
             new Function(js.outputText)();

@@ -1,5 +1,5 @@
 class Observable<T> {
-    private static firedObservers = new Set<Observable<any>>();
+    private static firedObservers: Set<Observable<any>> | null;
     private observers = new Set<(T) => void>();
 
     addObserver(observer): void {
@@ -11,9 +11,9 @@ class Observable<T> {
     }
 
     didChange(): void {
-        if (Observable.firedObservers.size == 0)
+        if (!Observable.firedObservers)
             setTimeout(Observable.fireAllObservers);
-        Observable.firedObservers.add(this);
+        Observable.firedObservers = new Set([this]);
     }
 
     private fireObservers(): void {
@@ -22,14 +22,16 @@ class Observable<T> {
 
         for (let observer of oldObservers)
             observer(this);
-        
+
     }
 
     private static fireAllObservers(): void {
         let oldObservables = this.firedObservers;
-        this.firedObservers = new Set<Observable<any>>();
+        Observable.firedObservers = null;
 
-        for (let observable of oldObservables)
-            observable.fireObservers();
+        if (oldObservables) {
+            for (let observable of oldObservables)
+                observable.fireObservers();
+        }
     }
 }

@@ -1,6 +1,4 @@
-let ts = (window as any).ts;
-
-let compilationOptions = {
+let compilerOptions: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2015,
     downlevelIteration: true,
     strict: true,
@@ -18,37 +16,25 @@ let ttcontext: any = {
     window: window,
 };
 
-function updateClass(oldClass: any | null, newClass: any): any {
-    if (oldClass == null) {
-        return newClass;
+ttcontext.TTObject = class TTObject {
+    constructor(...args) {
+        this.__constructor(...args);
     }
 
-    function patch(oldObj: any, newObj: any) {
-        Object.getOwnPropertyNames(newObj)
-            .forEach(
-                (methodName) => {
-                    console.log(`patching ${methodName}`);
-                    oldObj[methodName] = newObj[methodName];
-                });
+    __constructor(...args) {}
+};
+
+function updateClass(oldClass: any, newClass: any): void {
+    for (let methodName of Object.getOwnPropertyNames(newClass)) {
+        if ((methodName != "length") && (methodName != "name") && (methodName != "prototype"))
+            oldClass[methodName] = newClass[methodName];
     }
 
-    /* Normal methods */
-    console.log("patching normal methods");
     for (let methodName of Object.getOwnPropertyNames(newClass.prototype))
         oldClass.prototype[methodName] = newClass.prototype[methodName];
 
-    /* Static methods */
-    console.log("patching static methods");
-    for (let methodName of Object.getOwnPropertyNames(newClass.prototype)) {
-        if (methodName !== "prototype") {
-            oldClass[methodName] = newClass[methodName];
-        }
-    }
-
-    /* Adjust superclass */
+    Object.setPrototypeOf(oldClass.prototype, Object.getPrototypeOf(newClass.prototype));
     Object.setPrototypeOf(oldClass, Object.getPrototypeOf(newClass));
-
-    return oldClass;
 }
 
 class TTClass {
@@ -107,6 +93,12 @@ let classRegistry = new class {
         ttclass.typescriptVersion++;
         ttclass.javascriptDirty = true;
         this.projectVersion++;
+
+        /* If this class hasn't been defined yet, install a placeholder so other
+         * classes can refer to it. */
+        if (!ttcontext[className]) {
+            ttcontext[className] = class { };
+        }
     }
 
     recompile() {
@@ -116,6 +108,7 @@ let classRegistry = new class {
             .forEach(
                 (ttclass) => {
                     let filename = `${ttclass.className}.tsx`;
+                    console.log(`compiling ${ttclass.className}`);
 
                     languageServices
                         .getCompilerOptionsDiagnostics()
@@ -155,7 +148,8 @@ let classRegistry = new class {
             let fn = new Function(body).bind(ctx);
             let createdClass = fn();
 
-            ttcontext[ttclass.className] = updateClass(ttcontext[ttclass.className], createdClass);
+            updateClass(ttcontext[ttclass.className], createdClass);
+            ttcontext[ttclass.className] = createdClass;
             ttclass.javascriptDirty = false;
         };
 
@@ -165,7 +159,7 @@ let classRegistry = new class {
     }
 };
 
-languageServiceHost = new class LanguageServiceHost {
+languageServiceHost = new class implements ts.LanguageServiceHost {
     private libraries = new Map<string, string>();
 
     private classOfFile(path: string): TTClass {
@@ -182,17 +176,17 @@ languageServiceHost = new class LanguageServiceHost {
             .concat(Array.from(this.libraries.keys()));
     }
 
-    getScriptVersion(path: string): number {
+    getScriptVersion(path: string): string {
         if (this.libraries.has(path))
-            return 0;
-        return this.classOfFile(path).typescriptVersion;
+            return "0";
+        return this.classOfFile(path).typescriptVersion.toString();
     }
 
-    getProjectVersion(): number {
-        return classRegistry.getProjectVersion();
+    getProjectVersion(): string {
+        return classRegistry.getProjectVersion().toString();
     }
 
-    getScriptSnapshot(path: string): string {
+    getScriptSnapshot(path: string) {
         let text = this.libraries.get(path);
         if (text == undefined)
             text = this.classOfFile(path).typescript;
@@ -204,15 +198,24 @@ languageServiceHost = new class LanguageServiceHost {
     }
 
     getCompilationSettings(): any {
-        return compilationOptions;
+        return compilerOptions;
     }
 
     getDefaultLibFileName(options: any): string {
         return "lib.d.ts";
     }
 
-    readDirectory(path: string) {
-        throw "readDirectory not supported";
+    getCustomTransformers(): ts.CustomTransformers {
+        return new class implements ts.CustomTransformers {
+            before = [
+                (context) => sanityCheckTransformer
+            ];
+
+            after = [
+                (context) =>
+                    (sourceFile) => deconstructorTransformer(context, sourceFile)
+            ];
+        }
     }
 
     trace = console.log;
@@ -222,6 +225,109 @@ languageServices = ts.createLanguageService(
     languageServiceHost,
     ts.createDocumentRegistry()
 );
+
+function sanityCheckTransformer(node: ts.SourceFile): ts.SourceFile {
+    let seenClass = false;
+    for (let statement of node.statements) {
+        if (ts.isClassLike(statement)) {
+            if (seenClass)
+                throw "TypeTalk files must contain precisely one class";
+            seenClass = true;
+        }
+    }
+
+    let theClass = node.statements[0] as ts.ClassLikeDeclaration;
+    for (let member of theClass.members) {
+        if (ts.isPropertyDeclaration(member)) {
+            let theProperty = member as ts.PropertyDeclaration;
+            if (theProperty.modifiers && theProperty.initializer) {
+                for (let modifier of theProperty.modifiers) {
+                    if (modifier.kind == ts.SyntaxKind.StaticKeyword) {
+                        throw "Static properties in TypeTalk classes can't be initialised";
+                    }
+                }
+            }
+        }
+    }
+
+    return node;
+}
+
+function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.SourceFile): ts.SourceFile {
+    let seenClass = false;
+    for (let statement of node.statements) {
+        if (ts.isClassLike(statement)) {
+            if (seenClass)
+                throw "TypeTalk files must contain precisely one class";
+            seenClass = true;
+        }
+    }
+
+    function visitConstructorNodes(node: ts.Node): ts.VisitResult<ts.Node> {
+        if (node.kind == ts.SyntaxKind.SuperKeyword) {
+            /* Rewrite any calls to super to super.__constructor. */
+            return ts.createPropertyAccess(
+                ts.createSuper(),
+                "__constructor");
+        }
+        return ts.visitEachChild(node, visitConstructorNodes, ctx);
+    }
+
+    function visitMembers(node: ts.Node): ts.VisitResult<ts.Node> {
+        if (ts.isConstructorDeclaration(node)) {
+            return ts.createMethod(
+                node.decorators,
+                node.modifiers,
+                node.asteriskToken,
+                "__constructor",
+                node.questionToken,
+                node.typeParameters,
+                node.parameters,
+                node.type,
+                ts.visitEachChild((node as ts.ConstructorDeclaration).body,
+                    visitConstructorNodes, ctx));
+        }
+        if (ts.isClassDeclaration(node)) {
+            let theClass = node as ts.ClassDeclaration;
+            let hasExtension = false;
+            if (theClass.heritageClauses) {
+                for (let clause of theClass.heritageClauses)
+                    hasExtension = hasExtension || (clause.token == ts.SyntaxKind.ExtendsKeyword);
+            }
+
+            if (!hasExtension) {
+                let oldClauses: ts.NodeArray<ts.HeritageClause> = ts.createNodeArray<ts.HeritageClause>();
+                if (theClass.heritageClauses)
+                    oldClauses = theClass.heritageClauses;
+                node = ts.updateClassDeclaration(
+                    theClass, 
+                    theClass.decorators,
+                    theClass.modifiers,
+                    theClass.name,
+                    theClass.typeParameters,
+                    oldClauses.concat(
+                        ts.createHeritageClause(
+                            ts.SyntaxKind.ExtendsKeyword,
+                            [ts.createExpressionWithTypeArguments(
+                                undefined,
+                                ts.createIdentifier("TTObject")
+                            )]
+                        )
+                    ),
+                    theClass.members
+                );
+            }
+
+            return ts.visitEachChild(node, visitMembers, ctx);
+        }
+        if (ts.isMethodDeclaration(node) || ts.isPropertyDeclaration(node)) {
+            return node;
+        }
+        return ts.visitEachChild(node, visitMembers, ctx);
+    }
+
+    return ts.visitEachChild(node, visitMembers, ctx);
+}
 
 ttcontext.globals = ttcontext;
 ttcontext.classRegistry = classRegistry;

@@ -39,7 +39,7 @@ class HelloWorldRunnable extends Runnable {
                     <a href="#" onClick={() => this.countDown()}>[Down]</a>
                 </div>
                 <textarea ref={e => this.editorElement = e as HTMLTextAreaElement}>{source}</textarea>
-                <button onClick={() => this.updateCode()}></button>
+                <button onClick={() => this.updateCode()}>Save</button>
             </div>,
             document.body, this.element);
     }
