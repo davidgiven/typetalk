@@ -21,14 +21,14 @@ ttcontext.TTObject = class TTObject {
         this.__constructor(...args);
     }
 
-    __constructor(...args) {}
+    __constructor(...args) { }
 };
 
 let targetSymbol = Symbol.for("typetalk-target");
 let superclassSymbol = Symbol.for("typetalk-superclass");
 function createClassProxy(name: string) {
     let target: any = new Function(`return function ${name}() {};`)();
-    return new Proxy(class {},
+    return new Proxy(class { },
         new class implements ProxyHandler<Object> {
             getPrototypeOf(t) { return Object.getPrototypeOf(target); }
             setPrototypeOf(t, v) { Object.setPrototypeOf(target, v); return true; }
@@ -254,7 +254,9 @@ languageServiceHost = new class implements ts.LanguageServiceHost {
     getCustomTransformers(): ts.CustomTransformers {
         return new class implements ts.CustomTransformers {
             before = [
-                (context) => sanityCheckTransformer
+                (context) => sanityCheckTransformer,
+                (context) => 
+                    (sourceFile) => constructorTransformer(context, sourceFile)
             ];
 
             after = [
@@ -273,23 +275,28 @@ languageServices = ts.createLanguageService(
 );
 
 function sanityCheckTransformer(node: ts.SourceFile): ts.SourceFile {
-    let seenClass = false;
+    let theClass: ts.ClassLikeDeclaration | null = null;
     for (let statement of node.statements) {
         if (ts.isClassLike(statement)) {
-            if (seenClass)
+            if (theClass)
                 throw "TypeTalk files must contain precisely one class";
-            seenClass = true;
+            theClass = statement as ts.ClassLikeDeclaration;
+        } else if (ts.isEmptyStatement(statement)) {
+            /* Do nothing, these are legal */
         }
+        else
+            throw `illegal statement ${statement.kind}`;
     }
 
-    let theClass = node.statements[0] as ts.ClassLikeDeclaration;
-    for (let member of theClass.members) {
-        if (ts.isPropertyDeclaration(member)) {
-            let theProperty = member as ts.PropertyDeclaration;
-            if (theProperty.modifiers && theProperty.initializer) {
-                for (let modifier of theProperty.modifiers) {
-                    if (modifier.kind == ts.SyntaxKind.StaticKeyword) {
-                        throw "Static properties in TypeTalk classes can't be initialised";
+    if (theClass) {
+        for (let member of theClass.members) {
+            if (ts.isPropertyDeclaration(member)) {
+                let theProperty = member as ts.PropertyDeclaration;
+                if (theProperty.modifiers && theProperty.initializer) {
+                    for (let modifier of theProperty.modifiers) {
+                        if (modifier.kind == ts.SyntaxKind.StaticKeyword) {
+                            throw "Static properties in TypeTalk classes can't be initialised";
+                        }
                     }
                 }
             }
@@ -297,6 +304,61 @@ function sanityCheckTransformer(node: ts.SourceFile): ts.SourceFile {
     }
 
     return node;
+}
+
+function constructorTransformer(context: ts.TransformationContext, node: ts.SourceFile): ts.SourceFile {
+    function visitor(node: ts.Node): ts.VisitResult<ts.Node> {
+        if (!ts.isClassDeclaration(node))
+            return node
+
+        let theClass = node as ts.ClassDeclaration;
+        let hasConstructor = false;
+        for (let member of theClass.members) {
+            hasConstructor = hasConstructor || ts.isConstructorDeclaration(member);
+        }
+        if (hasConstructor)
+            return node;
+
+        return ts.updateClassDeclaration(
+            theClass,
+            theClass.decorators,
+            theClass.modifiers,
+            theClass.name,
+            theClass.typeParameters,
+            theClass.heritageClauses,
+            theClass.members.concat(
+                ts.createConstructor(
+                    undefined,
+                    undefined,
+                    [
+                        ts.createParameter(
+                            undefined,
+                            undefined,
+                            ts.createToken(ts.SyntaxKind.DotDotDotToken),
+                            "args"
+                        )
+                    ],
+                    ts.createBlock(
+                        [
+                            ts.createStatement(
+                                ts.createCall(
+                                    ts.createSuper(),
+                                    undefined,
+                                    [
+                                        ts.createSpread(
+                                            ts.createIdentifier("args")
+                                        )
+                                    ]
+                                )
+                            )
+                        ]
+                    )
+                )
+            )
+        );
+    }
+
+    return ts.visitEachChild(node, visitor, context);
 }
 
 function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.SourceFile): ts.SourceFile {
@@ -346,7 +408,7 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
                 if (theClass.heritageClauses)
                     oldClauses = theClass.heritageClauses;
                 node = ts.updateClassDeclaration(
-                    theClass, 
+                    theClass,
                     theClass.decorators,
                     theClass.modifiers,
                     theClass.name,
