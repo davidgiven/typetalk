@@ -24,17 +24,64 @@ ttcontext.TTObject = class TTObject {
     __constructor(...args) {}
 };
 
+let targetSymbol = Symbol.for("typetalk-target");
+let superclassSymbol = Symbol.for("typetalk-superclass");
+function createClassProxy(name: string) {
+    let target: any = new Function(`return function ${name}() {};`)();
+    return new Proxy(class {},
+        new class implements ProxyHandler<Object> {
+            getPrototypeOf(t) { return Object.getPrototypeOf(target); }
+            setPrototypeOf(t, v) { Object.setPrototypeOf(target, v); return true; }
+            isExtensible() { return true; }
+            preventExtensions() { return false; }
+            getOwnPropertyDescriptor(t, p) { return Object.getOwnPropertyDescriptor(target, p); }
+            has(t, p) { return p in target; }
+            deleteProperty(t, p) { delete target[p]; return true; }
+            defineProperty(t, p, attrs) { return true; }
+            enumerate(t) { return target[Symbol.iterator]; }
+            ownKeys(t) { return Reflect.ownKeys(target); }
+            apply(t, args) { return target.apply(...args); }
+
+            construct(t, args, newTarget) {
+                let o: any = {};
+                Object.setPrototypeOf(o, target.prototype);
+                o.__constructor(...args);
+                return o;
+            }
+
+            get(t, p) {
+                if (p == targetSymbol)
+                    return target;
+                if (p == "prototype")
+                    return t.prototype;
+                return target[p];
+            }
+
+            set(t, p, v) {
+                if (p == targetSymbol)
+                    target = v;
+                else
+                    target[p] = v;
+                return true;
+            }
+        }
+    );
+}
+
 function updateClass(oldClass: any, newClass: any): void {
+    let oldClassTarget = oldClass[targetSymbol];
+
     for (let methodName of Object.getOwnPropertyNames(newClass)) {
         if ((methodName != "length") && (methodName != "name") && (methodName != "prototype"))
-            oldClass[methodName] = newClass[methodName];
+            oldClassTarget[methodName] = newClass[methodName];
     }
 
     for (let methodName of Object.getOwnPropertyNames(newClass.prototype))
-        oldClass.prototype[methodName] = newClass.prototype[methodName];
+        oldClassTarget.prototype[methodName] = newClass.prototype[methodName];
 
-    Object.setPrototypeOf(oldClass.prototype, Object.getPrototypeOf(newClass.prototype));
-    Object.setPrototypeOf(oldClass, Object.getPrototypeOf(newClass));
+    let superclass = Object.getPrototypeOf(newClass.prototype);
+    Object.setPrototypeOf(oldClass.prototype, superclass);
+    oldClassTarget[superclassSymbol] = superclass;
 }
 
 class TTClass {
@@ -97,7 +144,7 @@ let classRegistry = new class {
         /* If this class hasn't been defined yet, install a placeholder so other
          * classes can refer to it. */
         if (!ttcontext[className]) {
-            ttcontext[className] = class { };
+            ttcontext[className] = createClassProxy(className);
         }
     }
 
@@ -149,7 +196,6 @@ let classRegistry = new class {
             let createdClass = fn();
 
             updateClass(ttcontext[ttclass.className], createdClass);
-            ttcontext[ttclass.className] = createdClass;
             ttclass.javascriptDirty = false;
         };
 
