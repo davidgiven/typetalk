@@ -1,19 +1,20 @@
-class Browser {
-    private runnables = new Map<string, Runnable>();
-    private element?: Element;
+class Browser extends Component {
+    private runnables = new Map<string, RunnableComponent>();
 
-    start(): void {
-        console.log("Browser starting");
-        this.findRunnables();
-
+    render() {
         let ui = <div></div>
         for (let [name, runnable] of this.runnables) {
             ui.children.push(
                 <p><a href='#' onClick={() => runnable.run()}>{name}</a></p>
             );
         }
+        return ui;
+    }
 
-        this.element = preact.render(ui, document.body, this.element);
+    start(): void {
+        console.log("Browser starting");
+        this.findRunnables();
+        this.redraw();
     }
 
     private findRunnables(): void {
@@ -24,7 +25,7 @@ class Browser {
             let value = globals[key];
             if (value && value.prototype) {
                 let proto = value.prototype;
-                if (proto instanceof Runnable) {
+                if (proto instanceof RunnableComponent) {
                     let runnable = new value();
                     this.runnables.set(runnable.name(), runnable);
                 }

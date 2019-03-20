@@ -1,5 +1,4 @@
-class HelloWorldRunnable extends Runnable {
-    private element?: Element;
+class HelloWorldRunnable extends RunnableComponent {
     private counter = 0;
     private editorElement?: HTMLTextAreaElement;
 
@@ -8,7 +7,7 @@ class HelloWorldRunnable extends Runnable {
     }
 
     run() {
-        this.render();
+        this.attachTo(document.body);
     }
 
     countUp() {
@@ -31,8 +30,7 @@ class HelloWorldRunnable extends Runnable {
 
     render() {
         let [superclassName, source] = classRegistry.get("HelloWorldRunnable");
-        this.element = preact.render(
-            <div>
+        return <div>
                 <div>
                     <p>Hello, there! I can do it {this.counter} times!</p>
                     <a href="#" onClick={() => this.countUp()}>[Up]</a>
@@ -40,7 +38,6 @@ class HelloWorldRunnable extends Runnable {
                 </div>
                 <textarea ref={e => this.editorElement = e as HTMLTextAreaElement}>{source}</textarea>
                 <button onClick={() => this.updateCode()}>Save</button>
-            </div>,
-            document.body, this.element);
+            </div>;
     }
 }
