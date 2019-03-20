@@ -160,6 +160,7 @@ let classRegistry = new class {
                 `//# sourceURL=${ttclass.className}.js`;
             let fn = new Function(body).bind(ctx);
             let createdClass = fn();
+            Object.defineProperty(createdClass, 'name', {value: ttclass.className});
 
             updateClass(ttcontext[ttclass.className], createdClass);
             ttclass.javascriptDirty = false;
@@ -243,14 +244,13 @@ languageServices = ts.createLanguageService(
 function sanityCheckTransformer(node: ts.SourceFile): ts.SourceFile {
     let theClass: ts.ClassLikeDeclaration | null = null;
     for (let statement of node.statements) {
-        if (ts.isClassLike(statement)) {
+        if (ts.isClassDeclaration(statement) || ts.isInterfaceDeclaration(statement)) {
             if (theClass)
                 throw "TypeTalk files must contain precisely one class";
             theClass = statement as ts.ClassLikeDeclaration;
         } else if (ts.isEmptyStatement(statement)) {
             /* Do nothing, these are legal */
-        }
-        else
+        } else
             throw `illegal statement ${statement.kind}`;
     }
 
@@ -330,7 +330,7 @@ function constructorTransformer(context: ts.TransformationContext, node: ts.Sour
 function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.SourceFile): ts.SourceFile {
     let seenClass = false;
     for (let statement of node.statements) {
-        if (ts.isClassLike(statement)) {
+        if (ts.isClassDeclaration(statement) || ts.isInterfaceDeclaration(statement)) {
             if (seenClass)
                 throw "TypeTalk files must contain precisely one class";
             seenClass = true;
@@ -361,7 +361,7 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
                 ts.visitEachChild((node as ts.ConstructorDeclaration).body,
                     visitConstructorNodes, ctx));
         }
-        if (ts.isClassLike(node)) {
+        if (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) {
             let theClass = node as ts.ClassLikeDeclaration;
             let hasExtension = false;
             if (theClass.heritageClauses) {
@@ -445,5 +445,5 @@ ttcontext.classRegistry = classRegistry;
 })();
 
 classRegistry.recompile();
-let browser = new ttcontext.Browser();
+let browser = new ttcontext.Browser().attachTo(document.body);
 browser.start();
