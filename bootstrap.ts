@@ -24,64 +24,30 @@ ttcontext.TTObject = class TTObject {
     __constructor(...args) { }
 };
 
-let targetSymbol = Symbol.for("typetalk-target");
-let superclassSymbol = Symbol.for("typetalk-superclass");
 function createClassProxy(name: string) {
-    let target: any = new Function(`return function ${name}() {};`)();
-    return new Proxy(class { },
-        new class implements ProxyHandler<Object> {
-            getPrototypeOf(t) { return Object.getPrototypeOf(target); }
-            setPrototypeOf(t, v) { Object.setPrototypeOf(target, v); return true; }
-            isExtensible() { return true; }
-            preventExtensions() { return false; }
-            getOwnPropertyDescriptor(t, p) { return Object.getOwnPropertyDescriptor(target, p); }
-            has(t, p) { return p in target; }
-            deleteProperty(t, p) { delete target[p]; return true; }
-            defineProperty(t, p, attrs) { return true; }
-            enumerate(t) { return target[Symbol.iterator]; }
-            ownKeys(t) { return Reflect.ownKeys(target); }
-            apply(t, args) { return target.apply(...args); }
-
-            construct(t, args, newTarget) {
-                let o: any = {};
-                Object.setPrototypeOf(o, target.prototype);
-                o.__constructor(...args);
-                return o;
-            }
-
-            get(t, p) {
-                if (p == targetSymbol)
-                    return target;
-                if (p == "prototype")
-                    return t.prototype;
-                return target[p];
-            }
-
-            set(t, p, v) {
-                if (p == targetSymbol)
-                    target = v;
-                else
-                    target[p] = v;
-                return true;
-            }
-        }
-    );
+    return new Function(`
+        return function ${name}(...args) {
+            this.__constructor(...args);
+        };
+        `)();
 }
 
 function updateClass(oldClass: any, newClass: any): void {
-    let oldClassTarget = oldClass[targetSymbol];
-
     for (let methodName of Object.getOwnPropertyNames(newClass)) {
         if ((methodName != "length") && (methodName != "name") && (methodName != "prototype"))
-            oldClassTarget[methodName] = newClass[methodName];
+            oldClass[methodName] = newClass[methodName];
     }
 
     for (let methodName of Object.getOwnPropertyNames(newClass.prototype))
-        oldClassTarget.prototype[methodName] = newClass.prototype[methodName];
+        oldClass.prototype[methodName] = newClass.prototype[methodName];
 
-    let superclass = Object.getPrototypeOf(newClass.prototype);
-    Object.setPrototypeOf(oldClass.prototype, superclass);
-    oldClassTarget[superclassSymbol] = superclass;
+    /* The prototype of a `prototype` is always Object. The *actual* superclass
+     * is the prototype of newClass itself. */
+    let superclass = Object.getPrototypeOf(newClass);
+
+    /* Construct the chain of prototypes (this is not how ES6 classes do it). */
+    Object.setPrototypeOf(oldClass.prototype, superclass.prototype);
+    Object.setPrototypeOf(oldClass, superclass);
 }
 
 class TTClass {
@@ -190,7 +156,7 @@ let classRegistry = new class {
 
             let ctx = Object.create(ttcontext);
             let body = `with (this) {\n\n${ttclass.javascript}\n\n` +
-                `return ${ttclass.className}; }\n` +
+                `return __tt_exported_class; }\n` +
                 `//# sourceURL=${ttclass.className}.js`;
             let fn = new Function(body).bind(ctx);
             let createdClass = fn();
@@ -255,7 +221,7 @@ languageServiceHost = new class implements ts.LanguageServiceHost {
         return new class implements ts.CustomTransformers {
             before = [
                 (context) => sanityCheckTransformer,
-                (context) => 
+                (context) =>
                     (sourceFile) => constructorTransformer(context, sourceFile)
             ];
 
@@ -395,25 +361,20 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
                 ts.visitEachChild((node as ts.ConstructorDeclaration).body,
                     visitConstructorNodes, ctx));
         }
-        if (ts.isClassDeclaration(node)) {
-            let theClass = node as ts.ClassDeclaration;
+        if (ts.isClassLike(node)) {
+            let theClass = node as ts.ClassLikeDeclaration;
             let hasExtension = false;
             if (theClass.heritageClauses) {
                 for (let clause of theClass.heritageClauses)
                     hasExtension = hasExtension || (clause.token == ts.SyntaxKind.ExtendsKeyword);
             }
 
-            if (!hasExtension) {
-                let oldClauses: ts.NodeArray<ts.HeritageClause> = ts.createNodeArray<ts.HeritageClause>();
-                if (theClass.heritageClauses)
-                    oldClauses = theClass.heritageClauses;
-                node = ts.updateClassDeclaration(
-                    theClass,
-                    theClass.decorators,
-                    theClass.modifiers,
-                    theClass.name,
-                    theClass.typeParameters,
-                    oldClauses.concat(
+            let clauses = theClass.heritageClauses
+            if (!hasExtension && ts.isClassDeclaration(theClass)) {
+                if (!clauses)
+                    clauses = ts.createNodeArray();
+                clauses = ts.createNodeArray(
+                    clauses.concat(
                         ts.createHeritageClause(
                             ts.SyntaxKind.ExtendsKeyword,
                             [ts.createExpressionWithTypeArguments(
@@ -421,10 +382,33 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
                                 ts.createIdentifier("TTObject")
                             )]
                         )
-                    ),
-                    theClass.members
+                    )
                 );
             }
+
+            if (ts.isClassDeclaration(theClass))
+                node = ts.updateClassDeclaration(
+                    theClass,
+                    theClass.decorators,
+                    theClass.modifiers,
+                    ts.createIdentifier("__tt_exported_class"),
+                    theClass.typeParameters,
+                    clauses,
+                    theClass.members
+                );
+            else if (ts.isInterfaceDeclaration(theClass))
+                node = ts.updateInterfaceDeclaration(
+                    theClass,
+                    theClass.decorators,
+                    theClass.modifiers,
+                    ts.createIdentifier("__tt_exported_class"),
+                    theClass.typeParameters,
+                    theClass.heritageClauses,
+                    theClass.members
+                );
+            else
+                throw "object is not a class or interface";
+
 
             return ts.visitEachChild(node, visitMembers, ctx);
         }
