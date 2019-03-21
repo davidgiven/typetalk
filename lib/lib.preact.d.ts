@@ -7,6 +7,7 @@ declare namespace preact {
 	interface PreactHTMLAttributes {
 		key?:string;
 		ref?:((e: Element)=>void);
+		dangerouslySetInnerHTML?:HTMLElement;
 	}
 
 	interface VNode {

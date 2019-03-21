@@ -10,11 +10,8 @@ let compilerOptions: ts.CompilerOptions = {
     noImplicitAny: false,
 };
 
-let ttcontext: any = {
-    __extends: (document as any).__extends,
-    document: document,
-    window: window,
-};
+let ttcontext: any = {};
+Object.setPrototypeOf(ttcontext, window);
 
 ttcontext.TTObject = class TTObject {
     constructor(...args) {
@@ -338,6 +335,9 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
     }
 
     function visitConstructorNodes(node: ts.Node): ts.VisitResult<ts.Node> {
+        /* Don't iterate into class expressions. */
+        if (ts.isClassLike(node))
+            return node;
         if (node.kind == ts.SyntaxKind.SuperKeyword) {
             /* Rewrite any calls to super to super.__constructor. */
             return ts.createPropertyAccess(

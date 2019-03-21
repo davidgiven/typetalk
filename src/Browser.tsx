@@ -21,7 +21,7 @@ class Browser extends Component {
         this.runnables.clear();
         /* This is hacky and horrible; ideally we should query the class registry
          * for this information. */
-        for (let key in globals) {
+        for (let key of Object.getOwnPropertyNames(globals)) {
             let value = globals[key];
             if (value && value.prototype) {
                 let proto = value.prototype;
