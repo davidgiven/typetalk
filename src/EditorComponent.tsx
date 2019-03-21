@@ -1,50 +1,25 @@
 class EditorComponent extends RunnableComponent {
-    private codeMirrorComponent: preact.Component<string, void>;
+    private textarea = document.createElement("textarea");
+    private codemirror: CodeMirror.EditorFromTextArea|undefined;
 
-    constructor() {
-        super();
-
-        this.codeMirrorComponent = new class extends preact.Component<string, void> {
-            codemirror: CodeMirror.EditorFromTextArea|null = null;
-            textarea: HTMLTextAreaElement|null = null;
-
-            componentDidMount() {
-                if (this.textarea) {
-                    this.codemirror = CodeMirror.fromTextArea(this.textarea);
-                    this.codemirror.setValue(this.props);
-                }
-            }
-
-            componentWillUnmount() {
-                if (this.codemirror) {
-                    this.codemirror.toTextArea();
-                }
-            }
-
-            render() {
-                return (
-                    <div>
-                        <textarea
-                            ref={ref => this.textarea = ref as HTMLTextAreaElement}
-                            value={this.props}
-                        />
-                    </div>
-                );
-            }
-        };
+    private afterCodemirrorAppend() {
+        this.codemirror = CodeMirror.fromTextArea(this.textarea);
     }
 
     render() {
-        return <div>
-            <div>
+        return <JsxHBox>
+            <JsxVBox>
                 <div>Class list goes here</div>
                 <div>Class controls go here</div>
-            </div>
-            <div>
-                {this.codeMirrorComponent}
+            </JsxVBox>
+            <JsxVBox>
+                <JsxHtmlElement
+                    child={this.textarea}
+                    beforeAppend={() => {}}
+                    afterAppend={() => this.afterCodemirrorAppend()}/>
                 <div>Editor controls go here</div>
-            </div>
-        </div>;
+            </JsxVBox>
+        </JsxHBox>;
     }
 
     name() {

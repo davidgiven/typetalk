@@ -13,12 +13,12 @@ let compilerOptions: ts.CompilerOptions = {
 let ttcontext: any = {};
 Object.setPrototypeOf(ttcontext, window);
 
+(Object as any).prototype.__constructor = (...args) => {};
+
 ttcontext.TTObject = class TTObject {
     constructor(...args) {
-        this.__constructor(...args);
+        (this as any).__constructor(...args);
     }
-
-    __constructor(...args) { }
 };
 
 function createClassProxy(name: string) {

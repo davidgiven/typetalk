@@ -2,13 +2,13 @@ class Browser extends Component {
     private runnables = new Map<string, RunnableComponent>();
 
     render() {
-        let ui = <div></div>
+        let children: JSX.Element[] = [];
         for (let [name, runnable] of this.runnables) {
-            ui.children.push(
+            children.push(
                 <p><a href='#' onClick={() => runnable.run()}>{name}</a></p>
             );
         }
-        return ui;
+        return <div>{ children }</div>
     }
 
     start(): void {
