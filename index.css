@@ -1,0 +1,46 @@
+.window {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 1px solid black;
+    background-color: white;
+    position: absolute;
+}
+
+.window .titlebar {
+    display: flex;
+    flex-direction: row;
+    flex-shrink: 0;
+    padding: 0.3em;
+    font-weight: bold;
+    cursor: move;
+}
+
+.window .content {
+    display: flex;
+    flex-direction: column;
+    padding: 0.3em;
+}
+
+.window .resizer {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 1em;
+    height: 1em;
+    background-color: red;
+    cursor: nwse-resize;
+}
+
+.hbox {
+    display: flex;
+    flex-direction: row;
+}
+
+.vbox {
+    display: flex;
+    flex-direction: column;
+}
+
+.expand { flex-grow: 999; }
+.noexpand { flex-shrink: 0; }

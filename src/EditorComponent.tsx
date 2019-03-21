@@ -7,19 +7,21 @@ class EditorComponent extends RunnableComponent {
     }
 
     render() {
-        return <JsxHBox>
-            <JsxVBox>
-                <div>Class list goes here</div>
-                <div>Class controls go here</div>
-            </JsxVBox>
-            <JsxVBox>
-                <JsxHtmlElement
-                    child={this.textarea}
-                    beforeAppend={() => {}}
-                    afterAppend={() => this.afterCodemirrorAppend()}/>
-                <div>Editor controls go here</div>
-            </JsxVBox>
-        </JsxHBox>;
+        return <JsxWindow title="Editor" resizeable={true}>
+            <JsxHBox>
+                <JsxVBox>
+                    <div>Class list goes here</div>
+                    <div>Class controls go here</div>
+                </JsxVBox>
+                <JsxVBox>
+                    <JsxHtmlElement
+                        child={this.textarea}
+                        beforeAppend={() => {}}
+                        afterAppend={() => this.afterCodemirrorAppend()}/>
+                    <div>Editor controls go here</div>
+                </JsxVBox>
+            </JsxHBox>
+        </JsxWindow>;
     }
 
     name() {
