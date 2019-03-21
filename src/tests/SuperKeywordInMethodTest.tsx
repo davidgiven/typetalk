@@ -1,12 +1,12 @@
 class SuperKeywordInMethodTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass", null, `
+        classRegistry.set("TestClass", `
             class TestClass {
                 m(): number { return 1; }
             };
         `);
 
-        classRegistry.set("TestSubclass", null, `
+        classRegistry.set("TestSubclass", `
             class TestSubclass extends TestClass {
                 m(): number { return super.m() + 1; }
             };

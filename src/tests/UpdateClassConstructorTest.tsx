@@ -1,6 +1,6 @@
 class UpdateClassConstructorTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass", null,
+        classRegistry.set("TestClass",
         `
             class TestClass {
                 static result: number;

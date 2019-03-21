@@ -13,7 +13,7 @@ class RunTestsRunnable extends RunnableComponent {
 
     run() {
         this.attachTo(document.body);
-        for (let key in globals) {
+        for (let key of Object.getOwnPropertyNames(globals)) {
             let value = globals[key];
             if (value && value.prototype && (value.prototype instanceof AbstractTest)) {
                 try {

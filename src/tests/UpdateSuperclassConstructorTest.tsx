@@ -1,6 +1,6 @@
 class UpdateSuperclassConstructorTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass", null,
+        classRegistry.set("TestClass",
         `
             class TestClass {
                 static result: number;
@@ -10,7 +10,7 @@ class UpdateSuperclassConstructorTest extends AbstractTest {
             };
         `);
 
-        classRegistry.set("TestSubclass", null,
+        classRegistry.set("TestSubclass",
         `
             class TestSubclass extends TestClass {
             };
@@ -20,7 +20,7 @@ class UpdateSuperclassConstructorTest extends AbstractTest {
         let o = new globals.TestSubclass();
         this.assert(globals.TestClass.result == 1, "superclass constructor did not fire");
 
-        classRegistry.set("TestClass", null,
+        classRegistry.set("TestClass",
         `
             class TestClass {
                 static result: number;

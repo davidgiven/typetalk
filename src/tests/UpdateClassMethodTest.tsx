@@ -1,6 +1,6 @@
 class UpdateClassMethodTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass", null,
+        classRegistry.set("TestClass",
         `
             class TestClass {
                 m(): number { return 1; }
@@ -11,7 +11,7 @@ class UpdateClassMethodTest extends AbstractTest {
         let o = new globals.TestClass();
         this.assert(o.m() == 1, "method did not fire");
 
-        classRegistry.set("TestClass", null,
+        classRegistry.set("TestClass",
         `
             class TestClass {
                 m(): number { return 2; }

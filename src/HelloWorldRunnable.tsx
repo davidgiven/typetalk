@@ -23,13 +23,13 @@ class HelloWorldRunnable extends RunnableComponent {
     updateCode() {
         if (this.editorElement != undefined) {
             let newSource = this.editorElement.value;
-            classRegistry.set("HelloWorldRunnable", "Runnable", newSource);
+            classRegistry.set("HelloWorldRunnable", newSource);
             classRegistry.recompile();
         }
     }
 
     render() {
-        let [superclassName, source] = classRegistry.get("HelloWorldRunnable");
+        let source = classRegistry.get("HelloWorldRunnable")!.typescript;
         return <div>
                 <div>
                     <p>Hello, there! I can do it {this.counter} times!</p>

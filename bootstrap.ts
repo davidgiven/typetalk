@@ -49,7 +49,7 @@ function updateClass(oldClass: any, newClass: any): void {
 
 class TTClass {
     className: string;
-    superclassName: string | null = null;
+    compiledClass: any;
     typescript = "";
     typescriptVersion = 0;
     javascript = "";
@@ -88,17 +88,12 @@ let classRegistry = new class {
         return Array.from(this.classes.keys());
     }
 
-    get(className: string): [string | null | undefined, string | undefined] {
-        if (!this.classes.has(className)) {
-            return [undefined, undefined];
-        }
-        let ttclass = this.resolve(className);
-        return [ttclass.superclassName, ttclass.typescript];
+    get(className: string) {
+        return this.classes.get(className);
     }
 
-    set(className: string, superclassName: string | null, source: string): void {
+    set(className: string, source: string): void {
         let ttclass = this.resolve(className);
-        ttclass.superclassName = superclassName;
         ttclass.typescript = source;
         ttclass.typescriptVersion++;
         ttclass.javascriptDirty = true;
@@ -144,11 +139,9 @@ let classRegistry = new class {
             return;
         }
 
-        let reloadRecursively = (ttclass: TTClass) => {
+        for (let ttclass of this.getAllClasses()) {
             if (!ttclass.javascriptDirty)
-                return;
-            if (ttclass.superclassName != null)
-                reloadRecursively(this.resolve(ttclass.superclassName));
+                continue;
             console.log(`loading ${ttclass.className}`);
 
             let ctx = Object.create(ttcontext);
@@ -158,14 +151,12 @@ let classRegistry = new class {
             let fn = new Function(body).bind(ctx);
             let createdClass = fn();
             Object.defineProperty(createdClass, 'name', {value: ttclass.className});
+            let classProxy = ttcontext[ttclass.className];
 
-            updateClass(ttcontext[ttclass.className], createdClass);
+            updateClass(classProxy, createdClass);
+            ttclass.compiledClass = classProxy;
             ttclass.javascriptDirty = false;
-        };
-
-        this.getAllClasses()
-            .filter(ttclass => ttclass.javascriptDirty)
-            .forEach(reloadRecursively);
+        }
     }
 };
 
@@ -438,7 +429,7 @@ ttcontext.classRegistry = classRegistry;
                     throw `script ${script.leafName} did not contain a parseable class`;
                 let className = matches[1];
                 let superclassName = matches[2] || null;
-                classRegistry.set(className, superclassName, script.text);
+                classRegistry.set(className, script.text);
             }
         }
     }

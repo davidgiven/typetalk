@@ -1,6 +1,6 @@
 class SuperKeywordInConstructorTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass", null, `
+        classRegistry.set("TestClass", `
             class TestClass {
                 value: number;
 
@@ -10,7 +10,7 @@ class SuperKeywordInConstructorTest extends AbstractTest {
             };
         `);
 
-        classRegistry.set("TestSubclass", null, `
+        classRegistry.set("TestSubclass", `
             class TestSubclass extends TestClass {
                 constructor() {
                     super(7);
