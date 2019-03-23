@@ -1,4 +1,6 @@
 class JsxWindowProps {
     title: string = "";
-    resizeable: boolean|undefined = true;
+    resizeable?: boolean;
+    minWidth?: number;
+    minHeight?: number;
 };

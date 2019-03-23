@@ -1,4 +1,4 @@
-class JsxHtmlElement extends preact.Component<JsxHtmlElementProps, JsxHtmlElementState> {
+class JsxHtmlElement extends AbstractJsxComponent<JsxHtmlElementProps, JsxHtmlElementState> {
     private static globalId: number;
 
     constructor() {
@@ -48,6 +48,6 @@ class JsxHtmlElement extends preact.Component<JsxHtmlElementProps, JsxHtmlElemen
     }
 
     render() {
-        return <div id={this.state.id}></div>;
+        return <div style={this.props.style} class={this.props.className} id={this.state.id}></div>;
     }
 };

@@ -1,63 +1,64 @@
-class JsxWindow extends preact.Component<JsxWindowProps, JsxWindowState> {
-    private titlebar: Element|undefined;
-
-    private static fromPixels(s: string|null): number {
-        if (s)
-            return +s.replace(/px$/, "");
-        return 0;
+class JsxWindow extends AbstractJsxComponent<JsxWindowProps, JsxWindowState> {
+    private onMoveBegin(x: number, y: number) {
+        let [winX, winY] = this.getPosition();
+        this.state.startX = winX - x;
+        this.state.startY = winY - y;
     }
 
-    private onBeginDrag(me: MouseEvent) {
-        me.preventDefault();
-
-        let computed = window.getComputedStyle(this.base.parentElement!);
-        let winX = this.base.offsetLeft - JsxWindow.fromPixels(computed.borderLeftWidth);
-        let winY = this.base.offsetTop - JsxWindow.fromPixels(computed.borderTopWidth);
-
-        this.state.startX = winX - me.clientX;
-        this.state.startY = winY - me.clientY;
-        document.onmousemove = (me) => this.onDrag(me);
-        document.onmouseup = (me) => this.onEndDrag(me);
-
-        return false;
+    private onMoveDrag(x: number, y: number) {
+        let newX = this.state.startX + x;
+        let newY = this.state.startY + y;
+        this.setPosition(newX, newY);
     }
 
-    private onDrag(me: MouseEvent) {
-        me.preventDefault();
-        this.onMoveWindow(this.state.startX + me.clientX, this.state.startY + me.clientY);
-
-        return false;
+    private onResizeBegin(x: number, y: number) {
+        let [winX, winY] = this.getSize();
+        this.state.startX = winX - x;
+        this.state.startY = winY - y;
     }
 
-    private onEndDrag(me: MouseEvent) {
-        this.onDrag(me);
-        document.onmousemove = null;
-        document.onmouseup = null;
+    private onResizeDrag(x: number, y: number) {
+        let props = this.props;
+        let minW = props.minWidth || 128;
+        let minH = props.minHeight || 128;
 
-        return false;
+        let newW = this.state.startX + x;
+        if (newW < minW)
+            newW = minW;
+        let newH = this.state.startY + y;
+        if (newH < minH)
+            newH = minH;
+        this.setSize(newW, newH);
     }
 
-    private onBeginResize(me: MouseEvent) {
+    getMinimumSize(): [number, number] {
+        return [128, 128];
     }
-
-    onMoveWindow(x: number, y: number) {
-        this.base.style.left = `${x}px`;
-        this.base.style.top = `${y}px`;
-    }
-
+    
     render() {
         let props = this.props;
-        return <div class="window">
-            <div class="titlebar"
-                onMouseDown={(me) => this.onBeginDrag(me)}
-                ref={e => this.titlebar = e}>
-                {props.title}
-            </div>
-            <div class="content">
-                {props.children}
-            </div>
-            { props.resizeable ?
-            <div class="resizer" onMouseDown={me => this.onBeginResize(me)}/> : undefined }
-        </div>;
+        return <JsxGrid className="window"
+                rows="1.5em auto"
+                template={["header", "content"]}>
+                <JsxDraggable style={{"grid-area": "header"}}
+                    onBegin={(x, y) => this.onMoveBegin(x, y)}
+                    onMove={(x, y) => this.onMoveDrag(x, y)}
+                    >
+                    <div class="titlebar">
+                        {props.title}
+                    </div>
+                </JsxDraggable>
+                <div style={{"grid-area": "content", "display": "flex"}}>
+                    {props.children}
+                </div>
+                { props.resizeable ?
+                    <JsxDraggable
+                        className="resizer"
+                        onBegin={(x, y) => this.onResizeBegin(x, y)}
+                        onMove={(x, y) => this.onResizeDrag(x, y)}
+                        />
+                    : undefined
+                }
+            </JsxGrid>;
     }
 }

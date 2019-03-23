@@ -1,5 +1,7 @@
 class JsxHtmlElementProps {
-    child: HTMLElement|undefined;
+    style?: any;
+    className?: string;
+    child?: HTMLElement;
     beforeAppend() {}
     afterAppend() {}
 }

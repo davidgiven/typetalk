@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+}
+
 .window {
     display: flex;
     flex-direction: column;
@@ -19,6 +23,7 @@
 .window .content {
     display: flex;
     flex-direction: column;
+    flex-grow: 1;
     padding: 0.3em;
 }
 
@@ -35,12 +40,29 @@
 .hbox {
     display: flex;
     flex-direction: row;
+    flex-grow: 1;
 }
 
 .vbox {
     display: flex;
     flex-direction: column;
+    flex-grow: 1;
 }
 
 .expand { flex-grow: 999; }
 .noexpand { flex-shrink: 0; }
+
+.editor-codecontainer {
+    position: relative;
+    flex-grow: 1;
+    overflow: auto;
+}
+
+.CodeMirror {
+    height: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
