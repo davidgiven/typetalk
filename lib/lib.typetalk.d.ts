@@ -12,4 +12,6 @@ interface ClassRegistry {
     recompile();
 }
 
+declare function nativeConstructor(theInstance: any, theClass: any, ...args: any);
+
 declare const classRegistry: ClassRegistry;

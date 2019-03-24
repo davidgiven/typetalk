@@ -1,16 +1,19 @@
-class EditorComponent extends RunnableComponent {
-    private textarea = document.createElement("textarea");
-    private codemirror: CodeMirror.EditorFromTextArea|undefined;
-
-    constructor() {
-        super();
-        this.textarea.value = "This is some text.";
-    }
+class EditorComponent extends UiComponent<any> {
+    private textarea?: HTMLTextAreaElement;
+    private codemirror?: CodeMirror.EditorFromTextArea;
 
     onSave() {
     }
 
-    private afterCodemirrorAppend() {
+    onRefresh() {
+        this.refresh();
+    }
+
+    mount() {
+        if (!this.textarea)
+            return;
+
+        console.log("mount");
         this.codemirror = CodeMirror.fromTextArea(this.textarea, {
             mode: "typescript",
             lineWrapping: true,
@@ -20,40 +23,35 @@ class EditorComponent extends RunnableComponent {
         });
     }
 
-    render() {
-        return <JsxWindow title="Editor" resizeable={true} minWidth={300} minHeight={150}>
+    dismount() {
+        if (this.codemirror)
+            this.codemirror.toTextArea();
+    }
+
+    render(jsx, props) {
+        return <JsxWindow
+                id="window"
+                title="Editor"
+                resizeable={true}
+                width="30em" height="10em"
+                minWidth={300} minHeight={150}>
             <JsxGrid
-                className="expand"
+                class="expand"
                 columns="10em auto"
                 rows="auto 1.5em"
                 template={[
                     "classlist editor",
-                    "classcontrols editorcontrols"
+                    "controls editor"
                 ]}>
                 <div style={{"grid-area": "classlist"}}>
                     Class list goes here
                 </div>
-                <JsxHtmlElement
-                    style={{"grid-area": "editor"}}
-                    className="editor-codecontainer"
-                    child={this.textarea}
-                    beforeAppend={() => {}}
-                    afterAppend={() => this.afterCodemirrorAppend()}/>
-                <div style={{"grid-area": "classcontrols"}}>
-                    Class controls go here
-                </div>
-                <div style={{"grid-area": "editorcontrols"}}>
-                    <button onClick={() => this.onSave()}>Save</button>
-                </div>
+                <textarea ref={e => this.textarea = e} style={{"grid-area": "editor"}}/>
+                <JsxHBox style={{"grid-area": "controls"}}>
+                    <button onclick={() => this.onSave()}>Save</button>
+                    <button onclick={() => this.onRefresh()}>Refresh</button>
+                </JsxHBox>
             </JsxGrid>
         </JsxWindow>;
-    }
-
-    name() {
-        return "Editor";
-    }
-
-    run() {
-        this.attachTo(document.body);
     }
 }

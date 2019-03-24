@@ -1,4 +1,4 @@
-class JsxDraggable extends AbstractJsxComponent<JsxDraggableProps, JsxDraggableState> {
+class JsxDraggable extends UiComponent<JsxDraggableProps> {
     private onMouseDown(me: MouseEvent) {
         me.preventDefault();
         if (this.props.onBegin)
@@ -24,12 +24,12 @@ class JsxDraggable extends AbstractJsxComponent<JsxDraggableProps, JsxDraggableS
         return false;
     }
 
-    render() {
+    render(jsx, props) {
         return <div
-                style={this.props.style}
-                className={this.props.className}
-                onMouseDown={me => this.onMouseDown(me)}>
-            { this.props.children }
+                style={props.style}
+                class={props.class}
+                onmousedown={me => this.onMouseDown(me)}>
+            { props.children }
         </div>;
     }
 };

@@ -1,4 +1,4 @@
-class HelloWorldRunnable extends RunnableComponent {
+class HelloWorldRunnable extends Runnable<void> {
     private counter = 0;
     private editorElement?: HTMLTextAreaElement;
 
@@ -6,18 +6,29 @@ class HelloWorldRunnable extends RunnableComponent {
         return "Click me";
     }
 
-    run() {
-        this.attachTo(document.body);
+    render(jsx, props) {
+        let source = classRegistry.get("HelloWorldRunnable")!.typescript;
+        return <JsxWindow id="window" title="Hello world">
+            <div>
+                <div>
+                    <p>Hello, there! I can do it {this.counter} times!</p>
+                    <a href="#" onclick={() => this.countUp()}>[Up]</a>
+                    <a href="#" onclick={() => this.countDown()}>[Down]</a>
+                </div>
+                <textarea ref={e => this.editorElement = e as HTMLTextAreaElement}>{source}</textarea>
+                <button onclick={() => this.updateCode()}>Save</button>
+            </div>
+        </JsxWindow>
     }
 
     countUp() {
         this.counter++;
-        this.render();
+        this.refresh();
     }
 
     countDown() {
         this.counter--;
-        this.render();
+        this.refresh();
     }
 
     updateCode() {
@@ -26,18 +37,5 @@ class HelloWorldRunnable extends RunnableComponent {
             classRegistry.set("HelloWorldRunnable", newSource);
             classRegistry.recompile();
         }
-    }
-
-    render() {
-        let source = classRegistry.get("HelloWorldRunnable")!.typescript;
-        return <div>
-                <div>
-                    <p>Hello, there! I can do it {this.counter} times!</p>
-                    <a href="#" onClick={() => this.countUp()}>[Up]</a>
-                    <a href="#" onClick={() => this.countDown()}>[Down]</a>
-                </div>
-                <textarea ref={e => this.editorElement = e as HTMLTextAreaElement}>{source}</textarea>
-                <button onClick={() => this.updateCode()}>Save</button>
-            </div>;
     }
 }

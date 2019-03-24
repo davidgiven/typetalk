@@ -1,14 +1,16 @@
-class JsxGrid extends AbstractJsxComponent<JsxGridProps, any> {
-    render() {
-        return <div class={this.props.className} style={
-                {
-                    "display": "grid",
-                    "grid-template-columns": this.props.columns,
-                    "grid-template-rows": this.props.rows,
-                    "grid-template-areas": this.props.template!.map(s => `"${s}"`).join(" "),
-                }
-            }>
-            {this.props.children}
-            </div>;
+class JsxGrid extends UiComponent<JsxGridProps> {
+    render(jsx, props) {
+        let style = {
+            "display": "grid",
+            "grid-template-columns": props.columns,
+            "grid-template-rows": props.rows,
+            ...props.style
+        };
+        if (props.template)
+            style["grid-template-areas"] = props.template.map(s => `"${s}"`).join(" ");
+
+        return <div class={props.class} style={style}>
+            {props.children}
+        </div>;
     }
 }

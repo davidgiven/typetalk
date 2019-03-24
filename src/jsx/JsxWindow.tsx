@@ -1,20 +1,27 @@
-class JsxWindow extends AbstractJsxComponent<JsxWindowProps, JsxWindowState> {
+class JsxWindow extends UiComponent<JsxWindowProps> {
+    private startX = 0;
+    private startY = 0;
+    private x?: string;
+    private y?: string;
+    private width?: string;
+    private height?: string;
+
     private onMoveBegin(x: number, y: number) {
         let [winX, winY] = this.getPosition();
-        this.state.startX = winX - x;
-        this.state.startY = winY - y;
+        this.startX = winX - x;
+        this.startY = winY - y;
     }
 
     private onMoveDrag(x: number, y: number) {
-        let newX = this.state.startX + x;
-        let newY = this.state.startY + y;
-        this.setPosition(newX, newY);
+        this.x = `${this.startX + x}px`;
+        this.y = `${this.startY + y}px`;
+        this.refresh();
     }
 
     private onResizeBegin(x: number, y: number) {
         let [winX, winY] = this.getSize();
-        this.state.startX = winX - x;
-        this.state.startY = winY - y;
+        this.startX = winX - x;
+        this.startY = winY - y;
     }
 
     private onResizeDrag(x: number, y: number) {
@@ -22,43 +29,52 @@ class JsxWindow extends AbstractJsxComponent<JsxWindowProps, JsxWindowState> {
         let minW = props.minWidth || 128;
         let minH = props.minHeight || 128;
 
-        let newW = this.state.startX + x;
+        let newW = this.startX + x;
         if (newW < minW)
-            newW = minW;
-        let newH = this.state.startY + y;
+            newW = minW
+        let newH = this.startY + y;
         if (newH < minH)
             newH = minH;
-        this.setSize(newW, newH);
+
+        this.width = `${newW}px`;
+        this.height = `${newH}px`;
+        this.refresh();
     }
 
     getMinimumSize(): [number, number] {
         return [128, 128];
     }
-    
-    render() {
-        let props = this.props;
-        return <JsxGrid className="window"
-                rows="1.5em auto"
-                template={["header", "content"]}>
-                <JsxDraggable style={{"grid-area": "header"}}
-                    onBegin={(x, y) => this.onMoveBegin(x, y)}
-                    onMove={(x, y) => this.onMoveDrag(x, y)}
-                    >
-                    <div class="titlebar">
-                        {props.title}
-                    </div>
-                </JsxDraggable>
-                <div style={{"grid-area": "content", "display": "flex"}}>
-                    {props.children}
+
+    render(jsx, props) {
+        let style = {
+            left: this.x || props.x,
+            top: this.y || props.y,
+            width: this.width || props.width,
+            height: this.height || props.height,
+            ...props.style
+        };
+
+        return <JsxGrid style={style} class="window"
+            rows="1.5em auto"
+            template={["header", "content"]}>
+            <JsxDraggable style={{ "grid-area": "header" }}
+                onBegin={(x, y) => this.onMoveBegin(x, y)}
+                onMove={(x, y) => this.onMoveDrag(x, y)}
+            >
+                <div class="titlebar">
+                    {props.title}
                 </div>
-                { props.resizeable ?
-                    <JsxDraggable
-                        className="resizer"
-                        onBegin={(x, y) => this.onResizeBegin(x, y)}
-                        onMove={(x, y) => this.onResizeDrag(x, y)}
-                        />
-                    : undefined
-                }
-            </JsxGrid>;
+            </JsxDraggable>
+            <div style={{ "grid-area": "content", "display": "flex" }}>
+                {props.children}
+            </div>
+            {props.resizeable &&
+                <JsxDraggable
+                    class="resizer"
+                    onBegin={(x, y) => this.onResizeBegin(x, y)}
+                    onMove={(x, y) => this.onResizeDrag(x, y)}
+                />
+            }
+        </JsxGrid>;
     }
 }

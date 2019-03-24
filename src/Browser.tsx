@@ -1,20 +1,23 @@
-class Browser extends Component {
-    private runnables = new Map<string, RunnableComponent>();
+class Browser extends Runnable<any> {
+    private runnables = new Map<string, Runnable<any>>();
 
-    render() {
-        let children: JSX.Element[] = [];
+    name() {
+        return "Browser";
+    }
+
+    run() {
+        this.findRunnables();
+        super.run();
+    }
+
+    render(jsx, props) {
+        let children: Element[] = [];
         for (let [name, runnable] of this.runnables) {
             children.push(
-                <p><a href='#' onClick={() => runnable.run()}>{name}</a></p>
+                <p><a href='#' onclick={() => runnable.run()}>{name}</a></p>
             );
         }
         return <div>{ children }</div>
-    }
-
-    start(): void {
-        console.log("Browser starting");
-        this.findRunnables();
-        this.redraw();
     }
 
     private findRunnables(): void {
@@ -25,7 +28,7 @@ class Browser extends Component {
             let value = globals[key];
             if (value && value.prototype) {
                 let proto = value.prototype;
-                if (proto instanceof RunnableComponent) {
+                if ((proto instanceof Runnable) && proto.name) {
                     let runnable = new value();
                     this.runnables.set(runnable.name(), runnable);
                 }

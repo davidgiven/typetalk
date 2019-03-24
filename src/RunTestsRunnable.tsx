@@ -1,36 +1,34 @@
-class RunTestsRunnable extends RunnableComponent {
-    private output = <div>
-        <p><b>Running tests</b></p>
-    </div>;
+class RunTestsRunnable extends Runnable<any> {
+    private testResults = new Array<[string, string?]>();
 
     name() {
         return "Run all tests";
     }
 
-    render() {
-        return this.output;
+    render(jsx, props) {
+        return <div>
+            <p><b>Running tests</b></p>
+            { this.testResults.map(e =>
+                <div><p>{e[0]}: {e[1] ? "failed" : "passed"}</p>
+                {e[1] && <pre>{e[1]}</pre>}
+                </div>
+            )}
+            </div>;
     }
 
     run() {
-        this.attachTo(document.body);
         for (let key of Object.getOwnPropertyNames(globals)) {
             let value = globals[key];
             if (value && value.prototype && (value.prototype instanceof AbstractTest)) {
                 try {
                     new value().run();
-                    this.output.children.push(
-                        <p>{value.name}: passed</p>
-                    );
+                    this.testResults.push([value.name, undefined]);
                 } catch (e) {
-                    this.output.children.push(
-                        <div>
-                            <p>{value.name}: failed</p>
-                            <pre>{e}</pre>
-                        </div>
-                    );
+                    this.testResults.push(value.name, e.toString());
                 }
             }
         }
-        this.redraw();
+
+        super.run();
     }
 }
