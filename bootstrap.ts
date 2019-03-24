@@ -6,19 +6,23 @@ let compilerOptions: ts.CompilerOptions = {
     extendedDiagnostics: true,
     noEmitHelpers: true,
     jsx: ts.JsxEmit.React,
-    jsxFactory: "preact.h",
+    jsxFactory: "jsx",
     noImplicitAny: false,
 };
 
 let ttcontext: any = {};
 Object.setPrototypeOf(ttcontext, window);
 
-(Object as any).prototype.__constructor = (...args) => {};
+(Object as any).prototype.__constructor = (...args) => { };
 
 ttcontext.TTObject = class TTObject {
     constructor(...args) {
         (this as any).__constructor(...args);
     }
+};
+
+ttcontext.nativeConstructor = (theInstance: any, theClass: any, ...args: any) => {
+    theClass.prototype.constructor.bind(theInstance)(...args);
 };
 
 function createClassProxy(name: string) {
@@ -150,11 +154,13 @@ let classRegistry = new class {
                 `//# sourceURL=${ttclass.className}.js`;
             let fn = new Function(body).bind(ctx);
             let createdClass = fn();
-            Object.defineProperty(createdClass, 'name', {value: ttclass.className});
-            let classProxy = ttcontext[ttclass.className];
+            if (createdClass) {
+                Object.defineProperty(createdClass, 'name', { value: ttclass.className });
+                let classProxy = ttcontext[ttclass.className];
 
-            updateClass(classProxy, createdClass);
-            ttclass.compiledClass = classProxy;
+                updateClass(classProxy, createdClass);
+                ttclass.compiledClass = classProxy;
+            }
             ttclass.javascriptDirty = false;
         }
     }
@@ -318,11 +324,26 @@ function constructorTransformer(context: ts.TransformationContext, node: ts.Sour
 function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.SourceFile): ts.SourceFile {
     let seenClass = false;
     for (let statement of node.statements) {
-        if (ts.isClassDeclaration(statement) || ts.isInterfaceDeclaration(statement)) {
+        if (ts.isClassDeclaration(statement)) {
             if (seenClass)
                 throw "TypeTalk files must contain precisely one class";
             seenClass = true;
         }
+    }
+    if (!seenClass) {
+        /* No class has been seen, which means this is an interface (which TypeScript compiles
+         * into no code). Add a dummy declaration to keep the rest of the runtime happy. */
+        return ts.updateSourceFileNode(
+            node,
+            ts.createNodeArray([
+                ts.createExpressionStatement(
+                    ts.createAssignment(
+                        ts.createIdentifier("__tt_exported_class"),
+                        ts.createNull()
+                    )
+                )
+            ])
+        );
     }
 
     function visitConstructorNodes(node: ts.Node): ts.VisitResult<ts.Node> {
@@ -352,7 +373,7 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
                 ts.visitEachChild((node as ts.ConstructorDeclaration).body,
                     visitConstructorNodes, ctx));
         }
-        if (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) {
+        if (ts.isClassDeclaration(node)) {
             let theClass = node as ts.ClassLikeDeclaration;
             let hasExtension = false;
             if (theClass.heritageClauses) {
@@ -436,5 +457,5 @@ ttcontext.classRegistry = classRegistry;
 })();
 
 classRegistry.recompile();
-let browser = new ttcontext.Browser().attachTo(document.body);
-browser.start();
+let browser = new ttcontext.Browser();
+browser.run();
