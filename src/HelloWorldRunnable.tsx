@@ -5,7 +5,7 @@ class HelloWorldRunnable extends Runnable<void> {
     };
     private counter = 0;
 
-    name() {
+    static title() {
         return "Click me";
     }
 

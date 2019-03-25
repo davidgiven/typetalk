@@ -1,7 +1,7 @@
 class Browser extends Runnable<any> {
-    private runnables = new Map<string, Runnable<any>>();
+    private runnables = new Map<string, () => Runnable<any>>();
 
-    name() {
+    static title() {
         return "Browser";
     }
 
@@ -14,7 +14,7 @@ class Browser extends Runnable<any> {
         let children: Element[] = [];
         for (let [name, runnable] of this.runnables) {
             children.push(
-                <p><a href='#' onclick={() => runnable.run()}>{name}</a></p>
+                <p><a href='#' onclick={() => runnable().run()}>{name}</a></p>
             );
         }
         return <div>{ children }</div>
@@ -28,9 +28,8 @@ class Browser extends Runnable<any> {
             let value = globals[key];
             if (value && value.prototype) {
                 let proto = value.prototype;
-                if ((proto instanceof Runnable) && proto.name) {
-                    let runnable = new value();
-                    this.runnables.set(runnable.name(), runnable);
+                if ((proto instanceof Runnable) && value.title) {
+                    this.runnables.set(value.title(), () => new value());
                 }
             }
         }

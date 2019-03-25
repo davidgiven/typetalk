@@ -3,7 +3,7 @@ class RunTestsRunnable extends Runnable<any> {
         container?: HTMLElement;
     };
 
-    name() {
+    static title() {
         return "Run all tests";
     }
 

@@ -1,5 +1,5 @@
 class EditorRunnable extends Runnable<void> {
-    name() {
+    static title() {
         return "Editor";
     }
 
