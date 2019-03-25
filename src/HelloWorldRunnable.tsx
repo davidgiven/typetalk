@@ -4,7 +4,7 @@ class HelloWorldRunnable extends Runnable<void> {
         editor?: HTMLTextAreaElement;
     };
     private counter = 0;
-    private ttclass = TTClass.getClass("HelloWorldRunnable");
+    private ttclass = TTClass.getClass("HelloWorldRunnable")!;
 
     static title() {
         return "Click me";

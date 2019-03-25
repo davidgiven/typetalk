@@ -1,13 +1,49 @@
-class EditorComponent extends UiComponent<any> {
+class EditorComponent extends UiComponent<any> implements TTClassChangeListener {
     protected ids = new class {
         textarea?: HTMLTextAreaElement;
         codemirror?: CodeMirror.EditorFromTextArea;
+        classlist?: HTMLSelectElement;
+    };
+    private currentClass?: TTClass;
+
+    onClassesChanged() {
+        let classes = TTClass.getAllClasses();
+        let classNames = Array.from(classes.keys()).sort();
+        let classlist = this.ids.classlist!;
+        while (classlist.lastChild)
+            classlist.removeChild(classlist.lastChild);
+
+        let jsx = this.newJsxFactory();
+        for (let className of classNames) {
+            let ttclass = classes.get(className)!;
+            classlist.appendChild(
+                <option onclick={() => this.onClassSelected(ttclass)}>
+                { ttclass.getCommitted ? "" : "*" }
+                {className}</option>
+            );
+        }
+
+        TTClass.subscribe(this);
     }
 
-    onSave() {
+    private flushDirtySource() {
+        if (this.currentClass && this.ids.codemirror) {
+            let src = this.ids.codemirror.getValue();
+            this.currentClass.setSource(src);
+        }
     }
 
-    onRefresh() {
+    private onClassSelected(ttclass: TTClass) {
+        this.flushDirtySource();
+
+        this.currentClass = ttclass;
+        let src = ttclass.getSource();
+        this.ids.codemirror!.setValue(src);
+    }
+
+    private onCommit() {
+        this.flushDirtySource();
+        TTClass.recompile();
     }
 
     render(jsx, props) {
@@ -25,15 +61,14 @@ class EditorComponent extends UiComponent<any> {
                     "classlist editor",
                     "controls editor"
                 ]}>
-                <div style={{ "grid-area": "classlist" }}>
-                    Class list goes here
-                </div>
+                <select id="classlist" style={{ "grid-area": "classlist" }} size="3">
+                    <option value="item">Item</option>
+                </select>
                 <div style={{ "grid-area": "editor", "position": "relative" }}>
                     <textarea id="textarea" style={{ "grid-area": "editor" }} />
                 </div>
                 <JsxHBox style={{ "grid-area": "controls" }}>
-                    <button onclick={() => this.onSave()}>Save</button>
-                    <button onclick={() => this.onRefresh()}>Refresh</button>
+                    <button onclick={() => this.onCommit()}>Commit</button>
                 </JsxHBox>
             </JsxGrid>
         </JsxWindow>;
@@ -46,6 +81,7 @@ class EditorComponent extends UiComponent<any> {
             lineNumbers: true,
         });
 
+        this.onClassesChanged();
         return ui;
     }
 }

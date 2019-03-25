@@ -10,6 +10,9 @@ let compilerOptions: ts.CompilerOptions = {
     noImplicitAny: false,
 };
 
+let languageServiceHost;
+let languageService;
+
 let ttcontext: any = {};
 Object.setPrototypeOf(ttcontext, window);
 
@@ -33,52 +36,68 @@ function createClass(name: string) {
         `)();
 }
 
-let TTClass = ttcontext.TTClass = createClass("TTClass");
-Object.setPrototypeOf(TTClass, TTClass.prototype);
+let TTClassImpl = ttcontext.TTClass = createClass("TTClass");
+Object.setPrototypeOf(TTClassImpl, TTClassImpl.prototype);
 let typetalk = ttcontext.TypeTalk = createClass("TypeTalk");
-Object.setPrototypeOf(typetalk, TTClass.prototype);
+Object.setPrototypeOf(typetalk, TTClassImpl.prototype);
 let classes = new Map<string, any>();
 
 let projectVersion = 0;
-TTClass.prototype._typescript = "";
-TTClass.prototype._typescriptVersion = 0;
-TTClass.prototype._javascript = "";
-TTClass.prototype._javascriptDirty = true;
+TTClassImpl.prototype._typescript = "";
+TTClassImpl.prototype._typescriptVersion = 0;
+TTClassImpl.prototype._javascript = "";
+TTClassImpl.prototype._javascriptDirty = true;
 
-TTClass.prototype.setSource = function (typescript) {
-    this._typescript = typescript;
-    this._typescriptVersion++;
-    this._javascriptDirty = true;
-    projectVersion++;
+TTClassImpl.prototype.setSource = function (typescript) {
+    if (this._typescript != typescript) {
+        this._typescript = typescript;
+        this._typescriptVersion++;
+        this._javascriptDirty = true;
+        projectVersion++;
+        fireSubscribers();
+    }
 }
 
-TTClass.prototype.getSource = function () {
+TTClassImpl.prototype.getSource = function () {
     return this._typescript;
 }
 
-TTClass.addClass = function (name) {
+TTClassImpl.prototype.getCommitted = function () {
+    return !this._javascriptDirty;
+}
+
+let subscribers = new Set<TTClassChangeListener>();
+function fireSubscribers() {
+    for (let subscriber of subscribers)
+        setTimeout(() => subscriber.onClassesChanged(), 0);
+    subscribers.clear();
+}
+
+TTClassImpl.subscribe = function (subscriber) {
+    subscribers.add(subscriber);
+}
+
+TTClassImpl.addClass = function (name) {
     let ttclass = classes.get(name);
     if (!ttclass) {
         ttclass = createClass(name);
-        Object.setPrototypeOf(ttclass, TTClass.prototype);
+        Object.setPrototypeOf(ttclass, TTClassImpl.prototype);
         classes.set(name, ttclass);
         ttcontext[name] = ttclass;
+        fireSubscribers();
     }
     return ttclass;
 }
 
-TTClass.getClass = function (name) {
+TTClassImpl.getClass = function (name) {
     return classes.get(name);
 }
 
-TTClass.getAllClasses = function () {
+TTClassImpl.getAllClasses = function () {
     return classes;
 }
 
-let languageServiceHost;
-let languageService;
-
-TTClass.recompile = function () {
+TTClassImpl.recompile = function () {
     let errors = false;
     for (let ttclass of classes.values()) {
         if (!ttclass._javascriptDirty)
@@ -153,7 +172,7 @@ languageServiceHost = new class implements ts.LanguageServiceHost {
     private libraries = new Map<string, string>();
 
     private classOfFile(path: string): any {
-        return TTClass.getClass(path.replace(/\.tsx$/, ""));
+        return TTClassImpl.getClass(path.replace(/\.tsx$/, ""));
     }
 
     addLibrary(path: string, contents: string) {
@@ -434,12 +453,12 @@ ttcontext.globals = ttcontext;
                 let className = matches[1];
                 let superclassName = matches[2] || null;
                 console.log(`loading ${className}`);
-                TTClass.addClass(className).setSource(script.text);
+                TTClassImpl.addClass(className).setSource(script.text);
             }
         }
     }
 })();
 
-TTClass.recompile();
+TTClassImpl.recompile();
 let browser = new ttcontext.Browser();
 browser.run();
