@@ -25,7 +25,7 @@ ttcontext.nativeConstructor = (theInstance: any, theClass: any, ...args: any) =>
     theClass.prototype.constructor.bind(theInstance)(...args);
 };
 
-function createClassProxy(name: string) {
+function createClass(name: string) {
     return new Function(`
         return function ${name}(...args) {
             this.__constructor(...args);
@@ -33,144 +33,127 @@ function createClassProxy(name: string) {
         `)();
 }
 
-function updateClass(oldClass: any, newClass: any): void {
-    for (let methodName of Object.getOwnPropertyNames(newClass)) {
-        if ((methodName != "length") && (methodName != "name") && (methodName != "prototype"))
-            oldClass[methodName] = newClass[methodName];
-    }
+let TTClass = ttcontext.TTClass = createClass("TTClass");
+Object.setPrototypeOf(TTClass, TTClass.prototype);
+let typetalk = ttcontext.TypeTalk = createClass("TypeTalk");
+Object.setPrototypeOf(typetalk, TTClass.prototype);
+let classes = new Map<string, any>();
 
-    for (let methodName of Object.getOwnPropertyNames(newClass.prototype))
-        oldClass.prototype[methodName] = newClass.prototype[methodName];
+let projectVersion = 0;
+TTClass.prototype._typescript = "";
+TTClass.prototype._typescriptVersion = 0;
+TTClass.prototype._javascript = "";
+TTClass.prototype._javascriptDirty = true;
 
-    /* The prototype of a `prototype` is always Object. The *actual* superclass
-     * is the prototype of newClass itself. */
-    let superclass = Object.getPrototypeOf(newClass);
-
-    /* Construct the chain of prototypes (this is not how ES6 classes do it). */
-    Object.setPrototypeOf(oldClass.prototype, superclass.prototype);
-    Object.setPrototypeOf(oldClass, superclass);
+TTClass.prototype.setSource = function (typescript) {
+    this._typescript = typescript;
+    this._typescriptVersion++;
+    this._javascriptDirty = true;
+    projectVersion++;
 }
 
-class TTClass {
-    className: string;
-    compiledClass: any;
-    typescript = "";
-    typescriptVersion = 0;
-    javascript = "";
-    javascriptDirty = false;
+TTClass.prototype.getSource = function () {
+    return this._typescript;
+}
 
-    constructor(className: string) {
-        this.className = className;
+TTClass.addClass = function (name) {
+    let ttclass = classes.get(name);
+    if (!ttclass) {
+        ttclass = createClass(name);
+        Object.setPrototypeOf(ttclass, TTClass.prototype);
+        classes.set(name, ttclass);
+        ttcontext[name] = ttclass;
     }
-};
+    return ttclass;
+}
 
-let languageServiceHost: any;
-let languageServices: any;
+TTClass.getClass = function (name) {
+    return classes.get(name);
+}
 
-let classRegistry = new class {
-    private classes = new Map<string, TTClass>();
-    private projectVersion = 0;
+TTClass.getAllClasses = function () {
+    return classes;
+}
 
-    resolve(className: string): TTClass {
-        let ttclass = this.classes.get(className);
-        if (ttclass == undefined) {
-            ttclass = new TTClass(className);
-            this.classes.set(className, ttclass);
-        }
-        return ttclass;
-    }
+let languageServiceHost;
+let languageService;
 
-    getProjectVersion(): number {
-        return this.projectVersion;
-    }
+TTClass.recompile = function () {
+    let errors = false;
+    for (let ttclass of classes.values()) {
+        if (!ttclass._javascriptDirty)
+            continue;
 
-    getAllClasses(): TTClass[] {
-        return Array.from(this.classes.values());
-    }
+        let filename = `${ttclass.name}.tsx`;
+        console.log(`compiling ${ttclass.name}`);
 
-    getAllClassNames(): string[] {
-        return Array.from(this.classes.keys());
-    }
+        languageService
+            .getCompilerOptionsDiagnostics()
+            .concat(languageService.getSyntacticDiagnostics(filename))
+            .concat(languageService.getSemanticDiagnostics(filename))
+            .forEach((d: any) => {
+                console.log(d.messageText);
+                errors = true;
+            });
 
-    get(className: string) {
-        return this.classes.get(className);
-    }
-
-    set(className: string, source: string): void {
-        let ttclass = this.resolve(className);
-        ttclass.typescript = source;
-        ttclass.typescriptVersion++;
-        ttclass.javascriptDirty = true;
-        this.projectVersion++;
-
-        /* If this class hasn't been defined yet, install a placeholder so other
-         * classes can refer to it. */
-        if (!ttcontext[className]) {
-            ttcontext[className] = createClassProxy(className);
-        }
-    }
-
-    recompile() {
-        let errors = false;
-        classRegistry.getAllClasses()
-            .filter(ttclass => ttclass.javascriptDirty)
-            .forEach(
-                (ttclass) => {
-                    let filename = `${ttclass.className}.tsx`;
-                    console.log(`compiling ${ttclass.className}`);
-
-                    languageServices
-                        .getCompilerOptionsDiagnostics()
-                        .concat(languageServices.getSyntacticDiagnostics(filename))
-                        .concat(languageServices.getSemanticDiagnostics(filename))
-                        .forEach((d: any) => {
-                            console.log(d.messageText);
-                            errors = true;
-                        });
-
-                    let output = languageServices.getEmitOutput(filename);
-                    if (!output.emitSkipped) {
-                        for (let f of output.outputFiles) {
-                            if (f.name !== `${ttclass.className}.js`)
-                                throw `filename mismatch: got ${f.name}, expected ${filename}`;
-                            ttclass.javascript = f.text;
-                        }
-                    }
-                });
-
-        if (errors) {
-            console.log("compilation failed");
-            return;
-        }
-
-        for (let ttclass of this.getAllClasses()) {
-            if (!ttclass.javascriptDirty)
-                continue;
-            console.log(`loading ${ttclass.className}`);
-
-            let ctx = Object.create(ttcontext);
-            let body = `with (this) {\n\n${ttclass.javascript}\n\n` +
-                `return __tt_exported_class; }\n` +
-                `//# sourceURL=${ttclass.className}.js`;
-            let fn = new Function(body).bind(ctx);
-            let createdClass = fn();
-            if (createdClass) {
-                Object.defineProperty(createdClass, 'name', { value: ttclass.className });
-                let classProxy = ttcontext[ttclass.className];
-
-                updateClass(classProxy, createdClass);
-                ttclass.compiledClass = classProxy;
+        let output = languageService.getEmitOutput(filename);
+        if (!output.emitSkipped) {
+            for (let f of output.outputFiles) {
+                if (f.name !== `${ttclass.name}.js`)
+                    throw `filename mismatch: got ${f.name}, expected ${filename}`;
+                if (ttclass._javascript == f.text)
+                    ttclass._javascriptDirty = false;
+                else
+                    ttclass._javascript = f.text;
             }
-            ttclass.javascriptDirty = false;
         }
+    }
+
+    if (errors) {
+        console.log("compilation failed");
+        return;
+    }
+
+    for (let ttclass of classes.values()) {
+        if (!ttclass._javascriptDirty)
+            continue;
+
+        console.log(`loading ${ttclass.name}`);
+
+        let ctx = Object.create(ttcontext);
+        let body = `with (this) {\n\n${ttclass._javascript}\n\n` +
+            `return __tt_exported_class; }\n` +
+            `//# sourceURL=${ttclass.name}.js`;
+        let fn = new Function(body).bind(ctx);
+        let classImpl = fn();
+        if (classImpl) {
+            Object.defineProperty(classImpl, 'name', { value: ttclass.name });
+
+            for (let methodName of Object.getOwnPropertyNames(classImpl)) {
+                if ((methodName != "length") && (methodName != "name") && (methodName != "prototype"))
+                    ttclass[methodName] = classImpl[methodName];
+            }
+
+            for (let methodName of Object.getOwnPropertyNames(classImpl.prototype))
+                ttclass.prototype[methodName] = classImpl.prototype[methodName];
+
+            /* The prototype of a `prototype` is always Object. The *actual* superclass
+            * is the prototype of newClass itself. */
+            let superclass = Object.getPrototypeOf(classImpl);
+
+            /* Construct the chain of prototypes (this is not how ES6 classes do it). */
+            Object.setPrototypeOf(ttclass.prototype, superclass.prototype);
+        }
+
+        ttclass._javascriptDirty = false;
     }
 };
 
 languageServiceHost = new class implements ts.LanguageServiceHost {
     private libraries = new Map<string, string>();
 
-    private classOfFile(path: string): TTClass {
-        return classRegistry.resolve(path.replace(/\.tsx$/, ""));
+    private classOfFile(path: string): any {
+        return TTClass.getClass(path.replace(/\.tsx$/, ""));
     }
 
     addLibrary(path: string, contents: string) {
@@ -178,26 +161,26 @@ languageServiceHost = new class implements ts.LanguageServiceHost {
     }
 
     getScriptFileNames(): string[] {
-        return classRegistry.getAllClasses()
-            .map(ttclass => `${ttclass.className}.tsx`)
+        return Array.from(classes.keys())
+            .map(name => `${name}.tsx`)
             .concat(Array.from(this.libraries.keys()));
     }
 
     getScriptVersion(path: string): string {
         if (this.libraries.has(path))
             return "0";
-        return this.classOfFile(path).typescriptVersion.toString();
+        return this.classOfFile(path)._typescriptVersion.toString();
     }
 
     getProjectVersion(): string {
-        return classRegistry.getProjectVersion().toString();
+        return projectVersion.toString();
     }
 
     getScriptSnapshot(path: string) {
         let text = this.libraries.get(path);
         if (text == undefined)
-            text = this.classOfFile(path).typescript;
-        return ts.ScriptSnapshot.fromString(text);
+            text = this.classOfFile(path)._typescript;
+        return ts.ScriptSnapshot.fromString(text!);
     }
 
     getCurrentDirectory(): string {
@@ -230,7 +213,7 @@ languageServiceHost = new class implements ts.LanguageServiceHost {
     trace = console.log;
 };
 
-languageServices = ts.createLanguageService(
+languageService = ts.createLanguageService(
     languageServiceHost,
     ts.createDocumentRegistry()
 );
@@ -434,7 +417,7 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
 }
 
 ttcontext.globals = ttcontext;
-ttcontext.classRegistry = classRegistry;
+
 (function () {
     let scripts = document.getElementsByTagName("SCRIPT");
     for (let i = 0; i < scripts.length; i++) {
@@ -450,12 +433,13 @@ ttcontext.classRegistry = classRegistry;
                     throw `script ${script.leafName} did not contain a parseable class`;
                 let className = matches[1];
                 let superclassName = matches[2] || null;
-                classRegistry.set(className, script.text);
+                console.log(`loading ${className}`);
+                TTClass.addClass(className).setSource(script.text);
             }
         }
     }
 })();
 
-classRegistry.recompile();
+TTClass.recompile();
 let browser = new ttcontext.Browser();
 browser.run();

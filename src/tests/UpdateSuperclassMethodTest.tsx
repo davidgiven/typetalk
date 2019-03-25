@@ -1,29 +1,26 @@
 class UpdateSuperclassMethodTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass",
-        `
+        TTClass.addClass("TestClass").setSource(`
             class TestClass {
                 m(): number { return 1; }
             };
         `);
 
-        classRegistry.set("TestSubclass",
-        `
+        TTClass.addClass("TestSubclass").setSource(`
             class TestSubclass extends TestClass {
             };
         `);
 
-        classRegistry.recompile();
+        TTClass.recompile();
         let o = new globals.TestSubclass();
         this.assert(o.m() == 1, "superclass method did not fire");
 
-        classRegistry.set("TestClass",
-        `
+        TTClass.addClass("TestClass").setSource(`
             class TestClass {
                 m(): number { return 2; }
             };
         `);
-        classRegistry.recompile();
+        TTClass.recompile();
 
         this.assert(o.m() == 2, "updated superclass method did not fire");
     }

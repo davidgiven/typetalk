@@ -1,7 +1,6 @@
 class UpdateSuperclassConstructorTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass",
-        `
+        TTClass.addClass("TestClass").setSource(`
             class TestClass {
                 static result: number;
                 constructor() {
@@ -10,18 +9,16 @@ class UpdateSuperclassConstructorTest extends AbstractTest {
             };
         `);
 
-        classRegistry.set("TestSubclass",
-        `
+        TTClass.addClass("TestSubclass").setSource(`
             class TestSubclass extends TestClass {
             };
         `);
 
-        classRegistry.recompile();
+        TTClass.recompile();
         let o = new globals.TestSubclass();
         this.assert(globals.TestClass.result == 1, "superclass constructor did not fire");
 
-        classRegistry.set("TestClass",
-        `
+        TTClass.addClass("TestClass").setSource(`
             class TestClass {
                 static result: number;
                 constructor() {
@@ -29,7 +26,7 @@ class UpdateSuperclassConstructorTest extends AbstractTest {
                 }
             };
         `);
-        classRegistry.recompile();
+        TTClass.recompile();
 
         o = new globals.TestSubclass();
         this.assert(globals.TestClass.result == 2, "updated superclass constructor did not fire");

@@ -4,13 +4,13 @@ class HelloWorldRunnable extends Runnable<void> {
         editor?: HTMLTextAreaElement;
     };
     private counter = 0;
+    private ttclass = TTClass.getClass("HelloWorldRunnable");
 
     static title() {
         return "Click me";
     }
 
     render(jsx, props) {
-        let source = classRegistry.get("HelloWorldRunnable")!.typescript;
         let ui = <JsxWindow title="Hello world">
             <div>
                 <div>
@@ -18,7 +18,7 @@ class HelloWorldRunnable extends Runnable<void> {
                     <a href="#" onclick={() => this.countUp()}>[Up]</a>
                     <a href="#" onclick={() => this.countDown()}>[Down]</a>
                 </div>
-                <textarea id="editor">{source}</textarea>
+                <textarea id="editor">{this.ttclass.getSource()}</textarea>
                 <button onclick={() => this.updateCode()}>Save</button>
             </div>
         </JsxWindow>
@@ -43,8 +43,8 @@ class HelloWorldRunnable extends Runnable<void> {
     updateCode() {
         if (this.ids.editor != undefined) {
             let newSource = this.ids.editor.value;
-            classRegistry.set("HelloWorldRunnable", newSource);
-            classRegistry.recompile();
+            this.ttclass.setSource(newSource);
+            TTClass.recompile();
         }
     }
 }

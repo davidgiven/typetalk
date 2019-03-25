@@ -1,6 +1,6 @@
 class SuperKeywordInConstructorTest extends AbstractTest {
     run() {
-        classRegistry.set("TestClass", `
+        TTClass.addClass("TestClass").setSource(`
             class TestClass {
                 value: number;
 
@@ -10,7 +10,7 @@ class SuperKeywordInConstructorTest extends AbstractTest {
             };
         `);
 
-        classRegistry.set("TestSubclass", `
+        TTClass.addClass("TestSubclass").setSource(`
             class TestSubclass extends TestClass {
                 constructor() {
                     super(7);
@@ -18,7 +18,7 @@ class SuperKeywordInConstructorTest extends AbstractTest {
             };
         `);
 
-        classRegistry.recompile();
+        TTClass.recompile();
         let o = new globals.TestSubclass();
         this.assert(o.value == 7, "incorrect value calculated");
     }

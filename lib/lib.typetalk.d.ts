@@ -1,17 +1,17 @@
 declare const globals: any;
 
-interface TTClass {
-    typescript: string;
-    compiledClass: any;
+declare class TTClass {
+    static addClass(name: string): TTClass;
+    static getClass(name: string): TTClass|undefined;
+    static getAllClasses(): Map<string, TTClass>;
+    static recompile();
+
+    getSource(): string;
+    setSource(typescript: string);
 }
 
-interface ClassRegistry {
-    getAllClassNames(): string[];
-    get(className: string): TTClass|undefined;
-    set(className: string, source: string): void;
-    recompile();
+declare class TypeTalk {
 }
 
 declare function nativeConstructor(theInstance: any, theClass: any, ...args: any);
 
-declare const classRegistry: ClassRegistry;
