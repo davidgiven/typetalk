@@ -34,4 +34,3 @@ class JsxDraggable extends UiComponent<JsxDraggableProps> {
     }
 };
 
-

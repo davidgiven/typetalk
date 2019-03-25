@@ -1,10 +1,6 @@
 class JsxWindow extends UiComponent<JsxWindowProps> {
     private startX = 0;
     private startY = 0;
-    private x?: string;
-    private y?: string;
-    private width?: string;
-    private height?: string;
 
     private onMoveBegin(x: number, y: number) {
         let [winX, winY] = this.getPosition();
@@ -13,9 +9,10 @@ class JsxWindow extends UiComponent<JsxWindowProps> {
     }
 
     private onMoveDrag(x: number, y: number) {
-        this.x = `${this.startX + x}px`;
-        this.y = `${this.startY + y}px`;
-        this.refresh();
+        if (this.root) {
+            this.root.style.left = `${this.startX + x}px`;
+            this.root.style.top = `${this.startY + y}px`;
+        }
     }
 
     private onResizeBegin(x: number, y: number) {
@@ -36,9 +33,10 @@ class JsxWindow extends UiComponent<JsxWindowProps> {
         if (newH < minH)
             newH = minH;
 
-        this.width = `${newW}px`;
-        this.height = `${newH}px`;
-        this.refresh();
+        if (this.root) {
+            this.root.style.width = `${newW}px`;
+            this.root.style.height = `${newH}px`;
+        }
     }
 
     getMinimumSize(): [number, number] {
@@ -47,10 +45,10 @@ class JsxWindow extends UiComponent<JsxWindowProps> {
 
     render(jsx, props) {
         let style = {
-            left: this.x || props.x,
-            top: this.y || props.y,
-            width: this.width || props.width,
-            height: this.height || props.height,
+            left: props.x,
+            top: props.y,
+            width: props.width,
+            height: props.height,
             ...props.style
         };
 

@@ -1,6 +1,9 @@
 class HelloWorldRunnable extends Runnable<void> {
+    protected ids = new class {
+        counter?: HTMLSpanElement;
+        editor?: HTMLTextAreaElement;
+    };
     private counter = 0;
-    private editorElement?: HTMLTextAreaElement;
 
     name() {
         return "Click me";
@@ -8,17 +11,23 @@ class HelloWorldRunnable extends Runnable<void> {
 
     render(jsx, props) {
         let source = classRegistry.get("HelloWorldRunnable")!.typescript;
-        return <JsxWindow id="window" title="Hello world">
+        let ui = <JsxWindow title="Hello world">
             <div>
                 <div>
-                    <p>Hello, there! I can do it {this.counter} times!</p>
+                    <p>Hello, there! I can do it <span id="counter"/> times!</p>
                     <a href="#" onclick={() => this.countUp()}>[Up]</a>
                     <a href="#" onclick={() => this.countDown()}>[Down]</a>
                 </div>
-                <textarea ref={e => this.editorElement = e as HTMLTextAreaElement}>{source}</textarea>
+                <textarea id="editor">{source}</textarea>
                 <button onclick={() => this.updateCode()}>Save</button>
             </div>
         </JsxWindow>
+        this.refresh();
+        return ui;
+    }
+
+    private refresh() {
+        this.ids.counter!.textContent = this.counter.toString();
     }
 
     countUp() {
@@ -32,8 +41,8 @@ class HelloWorldRunnable extends Runnable<void> {
     }
 
     updateCode() {
-        if (this.editorElement != undefined) {
-            let newSource = this.editorElement.value;
+        if (this.ids.editor != undefined) {
+            let newSource = this.ids.editor.value;
             classRegistry.set("HelloWorldRunnable", newSource);
             classRegistry.recompile();
         }

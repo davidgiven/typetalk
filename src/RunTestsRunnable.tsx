@@ -1,5 +1,7 @@
 class RunTestsRunnable extends Runnable<any> {
-    private testResults = new Array<[string, string?]>();
+    protected ids = new class {
+        container?: HTMLElement;
+    };
 
     name() {
         return "Run all tests";
@@ -8,27 +10,29 @@ class RunTestsRunnable extends Runnable<any> {
     render(jsx, props) {
         return <div>
             <p><b>Running tests</b></p>
-            { this.testResults.map(e =>
-                <div><p>{e[0]}: {e[1] ? "failed" : "passed"}</p>
-                {e[1] && <pre>{e[1]}</pre>}
-                </div>
-            )}
+            <div id="container"/>
             </div>;
     }
 
     run() {
+        super.run();
+
+        let jsx = this.newJsxFactory();
         for (let key of Object.getOwnPropertyNames(globals)) {
             let value = globals[key];
             if (value && value.prototype && (value.prototype instanceof AbstractTest)) {
                 try {
                     new value().run();
-                    this.testResults.push([value.name, undefined]);
+                    this.ids.container!.appendChild(
+                        <div><p>{value.name}: passed</p></div>
+                    );
                 } catch (e) {
-                    this.testResults.push(value.name, e.toString());
+                    this.ids.container!.appendChild(
+                        <div><p>{value.name}: failed</p>
+                        <pre>{e}</pre></div>
+                    );
                 }
             }
         }
-
-        super.run();
     }
 }
