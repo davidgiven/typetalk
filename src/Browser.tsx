@@ -5,7 +5,7 @@ class Browser extends Runnable<any> {
         return "Browser";
     }
 
-    run() {
+    async run() {
         this.findRunnables();
         super.run();
     }

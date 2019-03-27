@@ -14,7 +14,7 @@ class RunTestsRunnable extends Runnable<any> {
             </div>;
     }
 
-    run() {
+    async run() {
         super.run();
 
         let jsx = this.newJsxFactory();

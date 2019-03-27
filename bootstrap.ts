@@ -4,7 +4,6 @@ let compilerOptions: ts.CompilerOptions = {
     strict: true,
     suppressOutputPathCheck: false,
     extendedDiagnostics: true,
-    noEmitHelpers: true,
     jsx: ts.JsxEmit.React,
     jsxFactory: "jsx",
     noImplicitAny: false,
@@ -479,4 +478,7 @@ ttcontext.globals = ttcontext;
 
 TTClassImpl.recompile();
 let browser = new ttcontext.Browser();
+
 browser.run();
+//(async () => await browser.run())();
+

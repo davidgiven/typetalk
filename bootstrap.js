@@ -9,7 +9,6 @@
             var js = window.ts.transpileModule(ts, {
                 compilerOptions: {
                     extendedDiagnostics: true,
-                    noEmitHelpers: true,
                     strict: true,
                     target: window.ts.ScriptTarget.ES2015,
                 }
