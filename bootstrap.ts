@@ -12,6 +12,7 @@ let compilerOptions: ts.CompilerOptions = {
 
 let languageServiceHost;
 let languageService;
+let id = 0;
 
 let ttcontext: any = {};
 Object.setPrototypeOf(ttcontext, window);
@@ -29,11 +30,15 @@ ttcontext.nativeConstructor = (theInstance: any, theClass: any, ...args: any) =>
 };
 
 function createClass(name: string) {
-    return new Function(`
+    let fn = new Function(`
         return function ${name}(...args) {
             this.__constructor(...args);
         };
         `)();
+    id++;
+    Object.defineProperty(fn, "__id", { enumerable: false, value: id });
+    Object.defineProperty(fn.prototype, "__id", { enumerable: false, value: id });
+    return fn;
 }
 
 let TTClassImpl = ttcontext.TTClass = createClass("TTClass");
@@ -148,13 +153,26 @@ TTClassImpl.recompile = function () {
         if (classImpl) {
             Object.defineProperty(classImpl, 'name', { value: ttclass.name });
 
+            /* We have to leave existing properties because they may contain static
+             * class state. */
+
             for (let methodName of Object.getOwnPropertyNames(classImpl)) {
+                if (methodName == "__id")
+                    continue;
                 if ((methodName != "length") && (methodName != "name") && (methodName != "prototype"))
                     ttclass[methodName] = classImpl[methodName];
             }
 
-            for (let methodName of Object.getOwnPropertyNames(classImpl.prototype))
+            /* Delete existing methods before updating the prototype in case a stale
+             * method aliases one defined by a superclass. */
+
+            for (let key of Object.keys(ttclass.prototype))
+                delete ttclass.prototype[key];
+            for (let methodName of Object.getOwnPropertyNames(classImpl.prototype)) {
+                if (methodName == "__id")
+                    continue;
                 ttclass.prototype[methodName] = classImpl.prototype[methodName];
+            }
 
             /* The prototype of a `prototype` is always Object. The *actual* superclass
             * is the prototype of newClass itself. */
