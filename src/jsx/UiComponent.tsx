@@ -1,5 +1,5 @@
 abstract class UiComponent<PropsT> {
-    protected root?: HTMLComponentElement;
+    root?: HTMLComponentElement;
     protected ids: any = {};
     protected props: PropsT;
 

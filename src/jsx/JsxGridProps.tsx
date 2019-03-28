@@ -1,4 +1,5 @@
 class JsxGridProps {
+    id?: string;
     style?: any;
     class?: string;
     columns?: string;

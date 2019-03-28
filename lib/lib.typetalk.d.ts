@@ -8,6 +8,7 @@ declare class TTClass {
 
     static subscribe(subscriber: TTClassChangeListener);
 
+    prototype: any;
     getSource(): string;
     setSource(typescript: string);
     getCommitted(): boolean;

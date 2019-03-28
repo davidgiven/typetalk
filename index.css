@@ -2,6 +2,17 @@
     box-sizing: border-box;
 }
 
+BODY {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-image: url(lib/backdrop.webp);
+    background-repeat: repeat;
+}
+
 .window {
     display: flex;
     flex-direction: column;
@@ -9,6 +20,7 @@
     border: 1px solid black;
     background-color: white;
     position: absolute;
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, .5);
 }
 
 .window .titlebar {
