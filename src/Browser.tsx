@@ -17,7 +17,24 @@ class Browser extends Runnable<any> {
                 <p><a href='#' onclick={() => runnable().run()}>{name}</a></p>
             );
         }
-        return <div>{ children }</div>
+        return <div>
+            <button onclick={() => this.onExport()}>Export</button>
+            { children }</div>
+    }
+
+    private async onExport() {
+        let jszip = globals.JSZip() as JSZip;
+        let classes = TTClass.getAllClasses();
+        for (let [name, ttclass] of classes)
+            jszip.file(`${name}.tsx`, ttclass.getSource());
+        
+        let data: Blob = await jszip.generateAsync(
+            {
+                type: "blob",
+                compression: "DEFLATE",
+            }
+        );
+        globals.saveAs(data, "export.zip");
     }
 
     private findRunnables(): void {
