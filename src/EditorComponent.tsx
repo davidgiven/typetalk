@@ -46,6 +46,15 @@ class EditorComponent extends UiComponent<any> implements TTClassChangeListener 
         TTClass.recompile();
     }
 
+    private async onNewClass() {
+        let className = await QueryDialogue.run("New class name",
+            "What do you want to call your new class?");
+        if (!className)
+            return;
+
+        this.onClassSelected(TTClass.addClass(className));
+    }
+
     render(jsx, props) {
         let ui = <JsxGrid
                 class="expand"
@@ -62,6 +71,7 @@ class EditorComponent extends UiComponent<any> implements TTClassChangeListener 
                     <textarea id="textarea" style={{ "grid-area": "editor" }} />
                 </div>
                 <JsxHBox style={{ "grid-area": "controls" }}>
+                    <button onclick={() => this.onNewClass()}>New</button>
                     <button onclick={() => this.onCommit()}>Commit</button>
                 </JsxHBox>
             </JsxGrid>;
