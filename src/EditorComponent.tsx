@@ -77,7 +77,7 @@ class EditorComponent extends UiComponent<any> implements TTClassChangeListener 
             </JsxGrid>;
 
         this.ids.codemirror = CodeMirror.fromTextArea(this.ids.textarea!, {
-            mode: "typescript",
+            mode: "javascript",
             lineWrapping: true,
             tabSize: 4,
             indentWithTabs: false,
