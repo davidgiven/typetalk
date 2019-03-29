@@ -107,6 +107,8 @@ abstract class UiComponent<PropsT> {
 
     isAttached(): boolean {
         function is_attached(node) {
+            if (!node)
+                return false;
             if (node.nodeType === Node.DOCUMENT_NODE)
                 return true;
             if (node.parentNode == undefined)
