@@ -9,4 +9,6 @@ class JsxWindowProps {
     height?: string;
     minWidth?: number;
     minHeight?: number;
+
+    onClose?: () => void;
 };

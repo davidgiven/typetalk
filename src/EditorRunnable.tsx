@@ -4,6 +4,13 @@ class EditorRunnable extends Runnable<void> {
     }
 
     render(jsx, props) {
-        return <EditorComponent/>;
+        return <JsxWindow
+            title="Editor"
+            resizeable={true}
+            width="30em" height="10em"
+            onClose={() => this.onClose()}
+            minWidth={300} minHeight={150}>
+            <EditorComponent />
+        </JsxWindow>
     }
 }

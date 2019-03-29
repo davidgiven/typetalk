@@ -104,4 +104,16 @@ abstract class UiComponent<PropsT> {
             return [0, 0];
         return [this.root.clientWidth, this.root.clientHeight];
     }
+
+    isAttached(): boolean {
+        function is_attached(node) {
+            if (node.nodeType === Node.DOCUMENT_NODE)
+                return true;
+            if (node.parentNode == undefined)
+                return false;
+            return is_attached(node.parentNode);
+        }
+
+        return is_attached(this.root);
+    }
 }

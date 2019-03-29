@@ -39,6 +39,11 @@ class JsxWindow extends UiComponent<JsxWindowProps> {
         }
     }
 
+    onClose() {
+        if (this.props.onClose)
+            this.props.onClose();
+    }
+
     getMinimumSize(): [number, number] {
         return [128, 128];
     }
@@ -59,8 +64,10 @@ class JsxWindow extends UiComponent<JsxWindowProps> {
                 onBegin={(x, y) => this.onMoveBegin(x, y)}
                 onMove={(x, y) => this.onMoveDrag(x, y)}
             >
-                <div class="titlebar">
-                    {props.title}
+                <div class="titlebar" style={{ "display": "flex", "flex-direction": "row" }}>
+                    <div style={{ "flex-grow": "999" }}>{props.title}</div>
+                    {props.onClose && <button style={{ "width": "1em", "height": "1em" }}
+                        onclick={() => this.onClose()} />}
                 </div>
             </JsxDraggable>
             <div style={{ "grid-area": "content", "display": "flex" }}>

@@ -23,7 +23,9 @@ class Browser extends Runnable<any> implements TTClassChangeListener {
                     let title = (ttclass as any).title;
                     if (title) {
                         runnables.appendChild(
-                            <button onclick={() => new (ttclass as any)().run()}>{title()}</button>
+                            <button onclick={() => new (ttclass as any)().run()}>
+                                {title()}
+                            </button>
                         );
                     }
                 }

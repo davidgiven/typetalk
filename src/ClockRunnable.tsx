@@ -16,7 +16,7 @@ class ClockRunnable extends Runnable<any> {
             return new Promise(resolve => window.setTimeout(resolve, ms));
         }
       
-        for (;;) {
+        while (this.isAttached()) {
             this.redraw(ctx);
             await sleep(1000);
         }
@@ -46,7 +46,9 @@ class ClockRunnable extends Runnable<any> {
     }
 
     render(jsx, props) {
-        return <JsxWindow title="Dubious clock">
+        return <JsxWindow
+            onClose={() => this.onClose()}
+            title="Dubious clock">
             <canvas id="canvas" width="200" height="200"/>
         </JsxWindow>;
     }

@@ -5,4 +5,11 @@ abstract class Runnable<PropsT> extends UiComponent<PropsT> {
             document.body.appendChild(this.root);
         }
     }
+
+    onClose() {
+        if (this.root) {
+            this.root.remove();
+            this.root = undefined;
+        }
+    }
 }

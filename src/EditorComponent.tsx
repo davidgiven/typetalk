@@ -47,15 +47,9 @@ class EditorComponent extends UiComponent<any> implements TTClassChangeListener 
     }
 
     render(jsx, props) {
-        let ui = <JsxWindow
-            id="window"
-            title="Editor"
-            resizeable={true}
-            width="30em" height="10em"
-            minWidth={300} minHeight={150}>
-            <JsxGrid
+        let ui = <JsxGrid
                 class="expand"
-                columns="10em auto"
+                columns="15em auto"
                 rows="auto 1.5em"
                 template={[
                     "classlist editor",
@@ -70,8 +64,7 @@ class EditorComponent extends UiComponent<any> implements TTClassChangeListener 
                 <JsxHBox style={{ "grid-area": "controls" }}>
                     <button onclick={() => this.onCommit()}>Commit</button>
                 </JsxHBox>
-            </JsxGrid>
-        </JsxWindow>;
+            </JsxGrid>;
 
         this.ids.codemirror = CodeMirror.fromTextArea(this.ids.textarea!, {
             mode: "typescript",

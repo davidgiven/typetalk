@@ -11,7 +11,9 @@ class HelloWorldRunnable extends Runnable<void> {
     }
 
     render(jsx, props) {
-        let ui = <JsxWindow title="Hello world">
+        let ui = <JsxWindow
+            title="Hello world"
+            onClose={() => this.onClose()}>
             <div>
                 <div>
                     <p>Hello, there! I can do it <span id="counter"/> times!</p>
