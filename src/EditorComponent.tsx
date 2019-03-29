@@ -18,7 +18,7 @@ class EditorComponent extends UiComponent<any> implements TTClassChangeListener 
             let ttclass = classes.get(className)!;
             classlist.appendChild(
                 <option onclick={() => this.onClassSelected(ttclass)}>
-                { ttclass.getCommitted ? "" : "*" }
+                { ttclass.getCommitted() ? "" : "*" }
                 {className}</option>
             );
         }
