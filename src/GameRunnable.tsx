@@ -42,7 +42,7 @@ abstract class GameRunnable extends Runnable<any> {
         return false;
     }
 
-    private onReset() {}
+    protected onReset() {}
 
     abstract redraw(ctx: CanvasRenderingContext2D, delta: number);
 
