@@ -4,6 +4,6 @@
         "jsxFactory": "jsx",
         "noImplicitAny": false,
         "strict": true,
-        "target": "es2015",
+        "target": "es2017",
     }
 }

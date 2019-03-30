@@ -10,7 +10,7 @@
                 compilerOptions: {
                     extendedDiagnostics: true,
                     strict: true,
-                    target: window.ts.ScriptTarget.ES2015,
+                    target: window.ts.ScriptTarget.ES2017,
                 }
             });
             js.outputText += "\n//# sourceURL=bootstrap.js";

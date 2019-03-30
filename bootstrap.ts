@@ -10,7 +10,7 @@ declare namespace ts {
 }
 
 let compilerOptions: ts.CompilerOptions = {
-    target: ts.ScriptTarget.ES2015,
+    target: ts.ScriptTarget.ES2017,
     downlevelIteration: true,
     strict: true,
     suppressOutputPathCheck: false,
@@ -192,7 +192,8 @@ TTClassImpl.recompile = function () {
         console.log(`loading ${ttclass.name}`);
 
         let ctx = Object.create(ttcontext);
-        let body = `with (this) {\n\n${ttclass._javascript}\n\n` +
+        let body = `with (this) {\n\n` +
+            `${ttclass._javascript}\n\n` +
             `return __tt_exported_class; }\n` +
             `//# sourceURL=${ttclass.name}.js`;
         let fn = new Function(body).bind(ctx);
