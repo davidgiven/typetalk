@@ -1,3 +1,14 @@
+declare namespace ts {
+    function createDiagnosticForNodeInSourceFile(
+        sourceFile: SourceFile,
+        node: Node,
+        message: DiagnosticMessage,
+        arg0?: string | number,
+        arg1?: string | number,
+        arg2?: string | number,
+        arg3?: string | number): DiagnosticWithLocation;
+}
+
 let compilerOptions: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2015,
     downlevelIteration: true,
@@ -109,6 +120,38 @@ TTClassImpl.getAllClasses = function () {
 
 TTClassImpl.recompile = function () {
     let errors = false;
+
+    /* Phase 1: clear pending diagnostics. */
+
+    for (let ttclass of classes.values())
+        ttclass._errors = [];
+
+    /* Phase 2: accumulate all diagnostics. */
+
+    let diagnostics: ts.DiagnosticWithLocation[] = [];
+    for (let ttclass of classes.values()) {
+        let filename = `${ttclass.name}.tsx`;
+        diagnostics = diagnostics.concat(
+            languageService
+                .getCompilerOptionsDiagnostics()
+                .concat(languageService.getSyntacticDiagnostics(filename))
+                .concat(languageService.getSemanticDiagnostics(filename))
+                .filter(d => d.file && d.start));
+    }
+
+    /* Phase 3: attach the diagnostics to the files. */
+
+    for (let d of diagnostics) {
+        let classname = d.file.fileName.replace(/\.tsx$/, "");
+        let ttclass = classes.get(classname);
+        console.log(`${d.file.fileName}:${d.start} ${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`);
+        if (ttclass) {
+            ttclass._errors.push(d);
+        }
+    }
+
+    /* Phase 4: emit Javascript, even if we had diagnostics. This may add more diagnostics. */
+
     for (let ttclass of classes.values()) {
         if (!ttclass._javascriptDirty)
             continue;
@@ -116,34 +159,31 @@ TTClassImpl.recompile = function () {
         let filename = `${ttclass.name}.tsx`;
         console.log(`compiling ${ttclass.name}`);
 
-        ttclass._errors = languageService
-            .getCompilerOptionsDiagnostics()
-            .concat(languageService.getSyntacticDiagnostics(filename))
-            .concat(languageService.getSemanticDiagnostics(filename))
-            .filter(d => d.file && d.start);
-        if (ttclass._errors.length > 0) {
-            errors = true;
-            for (let e of ttclass._errors)
-                console.log(`${e.file}:${e.start} ${ts.flattenDiagnosticMessageText(e.messageText, "\n")}`);
-        }
-
         let output = languageService.getEmitOutput(filename);
         if (!output.emitSkipped) {
             for (let f of output.outputFiles) {
                 if (f.name !== `${ttclass.name}.js`)
                     throw `filename mismatch: got ${f.name}, expected ${filename}`;
-                if (ttclass._javascript == f.text)
-                    ttclass._javascriptDirty = false;
-                else
-                    ttclass._javascript = f.text;
+                ttclass._javascript = f.text;
             }
         }
     }
 
-    if (errors) {
-        console.log("compilation failed");
+    /* Phase 5: check all classes for diagnostics. If found, stop now. */
+
+    let diagnostics_found = false;
+    for (let ttclass of classes.values()) {
+        if (ttclass._errors.length > 0) {
+            diagnostics_found = true;
+            break;
+        }
+    }
+    if (diagnostics_found) {
+        console.log("Compilation failed.");
         return;
     }
+
+    /* Phase 6: reload the Javascript. */
 
     for (let ttclass of classes.values()) {
         if (!ttclass._javascriptDirty)
@@ -242,14 +282,15 @@ languageServiceHost = new class implements ts.LanguageServiceHost {
     getCustomTransformers(): ts.CustomTransformers {
         return new class implements ts.CustomTransformers {
             before = [
-                (context) => sanityCheckTransformer,
                 (context) =>
-                    (sourceFile) => constructorTransformer(context, sourceFile)
+                    (sourceFile) => sanityCheckTransformer(sourceFile).apply(),
+                (context) =>
+                    (sourceFile) => constructorTransformer(context, sourceFile).apply()
             ];
 
             after = [
                 (context) =>
-                    (sourceFile) => deconstructorTransformer(context, sourceFile)
+                    (sourceFile) => deconstructorTransformer(context, sourceFile).apply()
             ];
         }
     }
@@ -262,17 +303,47 @@ languageService = ts.createLanguageService(
     ts.createDocumentRegistry()
 );
 
-function sanityCheckTransformer(node: ts.SourceFile): ts.SourceFile {
+function createDiagnostic(message: string) {
+    return {
+        key: message,
+        category: ts.DiagnosticCategory.Error,
+        code: 9999,
+        message: message
+    };
+};
+
+class TransformedFileWithDiagnostics {
+    constructor(
+        public result: ts.SourceFile,
+        public diagnostics: ReadonlyArray<ts.DiagnosticWithLocation>) { }
+
+    apply(): ts.SourceFile {
+        for (let d of this.diagnostics) {
+            let classname = d.file.fileName.replace(/\.tsx$/, "");
+            let ttclass = classes.get(classname);
+            if (ttclass)
+                ttclass._errors.push(d);
+        }
+
+        return this.result!;
+    }
+}
+
+function sanityCheckTransformer(node: ts.SourceFile): TransformedFileWithDiagnostics {
+    let diagnostics: ts.DiagnosticWithLocation[] = [];
     let theClass: ts.ClassLikeDeclaration | null = null;
     for (let statement of node.statements) {
         if (ts.isClassDeclaration(statement) || ts.isInterfaceDeclaration(statement)) {
             if (theClass)
-                throw "TypeTalk files must contain precisely one class";
-            theClass = statement as ts.ClassLikeDeclaration;
+                diagnostics.push(ts.createDiagnosticForNodeInSourceFile(node, statement,
+                    createDiagnostic("TypeTalk files must contain precisely one class")));
+            else
+                theClass = statement as ts.ClassLikeDeclaration;
         } else if (ts.isEmptyStatement(statement)) {
             /* Do nothing, these are legal */
         } else
-            throw `illegal statement ${statement.kind}`;
+            diagnostics.push(ts.createDiagnosticForNodeInSourceFile(node, statement,
+                createDiagnostic(`Illegal statement ${statement.kind}`)));
     }
 
     if (theClass) {
@@ -282,7 +353,8 @@ function sanityCheckTransformer(node: ts.SourceFile): ts.SourceFile {
                 if (theProperty.modifiers && theProperty.initializer) {
                     for (let modifier of theProperty.modifiers) {
                         if (modifier.kind == ts.SyntaxKind.StaticKeyword) {
-                            throw "Static properties in TypeTalk classes can't be initialised";
+                            diagnostics.push(ts.createDiagnosticForNodeInSourceFile(node, member,
+                                createDiagnostic(`Static properties in TypeTalk classes can't be initialised`)));
                         }
                     }
                 }
@@ -290,10 +362,10 @@ function sanityCheckTransformer(node: ts.SourceFile): ts.SourceFile {
         }
     }
 
-    return node;
+    return new TransformedFileWithDiagnostics(node, diagnostics);
 }
 
-function constructorTransformer(context: ts.TransformationContext, node: ts.SourceFile): ts.SourceFile {
+function constructorTransformer(context: ts.TransformationContext, node: ts.SourceFile): TransformedFileWithDiagnostics {
     function visitor(node: ts.Node): ts.VisitResult<ts.Node> {
         if (!ts.isClassDeclaration(node))
             return node
@@ -345,31 +417,32 @@ function constructorTransformer(context: ts.TransformationContext, node: ts.Sour
         );
     }
 
-    return ts.visitEachChild(node, visitor, context);
+    return new TransformedFileWithDiagnostics(ts.visitEachChild(node, visitor, context), []);
 }
 
-function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.SourceFile): ts.SourceFile {
+function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.SourceFile): TransformedFileWithDiagnostics {
+    let diagnostics: ts.DiagnosticWithLocation[] = [];
     let seenClass = false;
     for (let statement of node.statements) {
-        if (ts.isClassDeclaration(statement)) {
-            if (seenClass)
-                throw "TypeTalk files must contain precisely one class";
+        if (ts.isClassDeclaration(statement))
             seenClass = true;
-        }
     }
     if (!seenClass) {
         /* No class has been seen, which means this is an interface (which TypeScript compiles
          * into no code). Add a dummy declaration to keep the rest of the runtime happy. */
-        return ts.updateSourceFileNode(
-            node,
-            ts.createNodeArray([
-                ts.createExpressionStatement(
-                    ts.createAssignment(
-                        ts.createIdentifier("__tt_exported_class"),
-                        ts.createNull()
+        return new TransformedFileWithDiagnostics(
+            ts.updateSourceFileNode(
+                node,
+                ts.createNodeArray([
+                    ts.createExpressionStatement(
+                        ts.createAssignment(
+                            ts.createIdentifier("__tt_exported_class"),
+                            ts.createNull()
+                        )
                     )
-                )
-            ])
+                ])
+            ),
+            diagnostics
         );
     }
 
@@ -457,7 +530,10 @@ function deconstructorTransformer(ctx: ts.TransformationContext, node: ts.Source
         return ts.visitEachChild(node, visitMembers, ctx);
     }
 
-    return ts.visitEachChild(node, visitMembers, ctx);
+    return new TransformedFileWithDiagnostics(
+        ts.visitEachChild(node, visitMembers, ctx),
+        diagnostics
+    );
 }
 
 ttcontext.globals = ttcontext;
