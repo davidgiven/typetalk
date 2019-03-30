@@ -8,6 +8,9 @@ class UpdateClassConstructorTest extends AbstractTest {
                 }
             };
         `);
+        TTClass.addClass("TestSubclass").setSource(`
+            class TestSubclass {}
+        `);
 
         TTClass.recompile();
         let o = new globals.TestClass();

@@ -5,6 +5,9 @@ class UpdateClassMethodTest extends AbstractTest {
                 m(): number { return 1; }
             };
         `);
+        TTClass.addClass("TestSubclass").setSource(`
+            class TestSubclass {}
+        `);
 
         TTClass.recompile();
         let o = new globals.TestClass();
