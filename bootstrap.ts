@@ -51,12 +51,14 @@ TTClassImpl.prototype._typescript = "";
 TTClassImpl.prototype._typescriptVersion = 0;
 TTClassImpl.prototype._javascript = "";
 TTClassImpl.prototype._javascriptDirty = true;
+TTClassImpl.prototype._errors = [];
 
 TTClassImpl.prototype.setSource = function (typescript) {
     if (this._typescript != typescript) {
         this._typescript = typescript;
         this._typescriptVersion++;
         this._javascriptDirty = true;
+        this._errors = [];
         projectVersion++;
         fireSubscribers();
     }
@@ -68,6 +70,10 @@ TTClassImpl.prototype.getSource = function () {
 
 TTClassImpl.prototype.getCommitted = function () {
     return !this._javascriptDirty;
+}
+
+TTClassImpl.prototype.getErrors = function () {
+    return this._errors;
 }
 
 let subscribers = new Set<TTClassChangeListener>();
@@ -110,14 +116,16 @@ TTClassImpl.recompile = function () {
         let filename = `${ttclass.name}.tsx`;
         console.log(`compiling ${ttclass.name}`);
 
-        languageService
+        ttclass._errors = languageService
             .getCompilerOptionsDiagnostics()
             .concat(languageService.getSyntacticDiagnostics(filename))
             .concat(languageService.getSemanticDiagnostics(filename))
-            .forEach((d: any) => {
-                console.log(d.messageText);
-                errors = true;
-            });
+            .filter(d => d.file && d.start);
+        if (ttclass._errors.length > 0) {
+            errors = true;
+            for (let e of ttclass._errors)
+                console.log(`${e.file}:${e.start} ${ts.flattenDiagnosticMessageText(e.messageText, "\n")}`);
+        }
 
         let output = languageService.getEmitOutput(filename);
         if (!output.emitSkipped) {

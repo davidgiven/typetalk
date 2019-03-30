@@ -12,6 +12,7 @@ declare class TTClass {
     getSource(): string;
     setSource(typescript: string);
     getCommitted(): boolean;
+    getErrors(): ReadonlyArray<ts.DiagnosticWithLocation>;
 }
 
 declare class TypeTalk {

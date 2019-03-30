@@ -38,12 +38,21 @@ class EditorComponent extends UiComponent<any> implements TTClassChangeListener 
 
         this.currentClass = ttclass;
         let src = ttclass.getSource();
-        this.ids.codemirror!.setValue(src);
+        let cm = this.ids.codemirror!;
+        cm.setValue(src);
+
+        let jsx = this.newJsxFactory();
+        for (let e of ttclass.getErrors()) {
+            let pos = e.file!.getLineAndCharacterOfPosition(e.start!);
+            let text = ts.flattenDiagnosticMessageText(e.messageText, "\n");
+            cm.addLineWidget(pos.line, <pre class="CodeMirror-error">{text}</pre>);
+        }
     }
 
     private onCommit() {
         this.flushDirtySource();
         TTClass.recompile();
+        this.onClassSelected(this.currentClass!);
     }
 
     private async onNewClass() {
