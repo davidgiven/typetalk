@@ -11,6 +11,14 @@ editor and it'll hot-patch the running system so that your code starts
 working immediately, _even_ if there are objects existing which currently
 running it.
 
+Watch me talk about it!
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/JDunc6Cr7YQ" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+[Or use the version hosted on cowlark.com if you want to try it for
+real!](http://cowlark.com/typetalk/live.html)
+
+
 Why?
 ----
 
@@ -21,6 +29,7 @@ recompilation, restarts, or even having to save your work.
 
 Currently it's a pile of fairly nasty hacks flying in loose formation, but it
 does actually _work_. Mostly.
+
 
 How?
 ----
@@ -35,10 +44,16 @@ interface, nothing else. So, type definitions, enums etc don't work. You
 can't have static initialisers. You _can_ inherit from normal Javascript
 objects, but it's dodgy as hell.
 
-There's no documentation.
+There's no documentation other than this page.
 
 To use, simply serve this directory in a web server and load the `index.html`
 page. No build stage is needed. The big files are deployed via CDN.
+
+Please note that I developed it on Chrome, and it currently doesn't work on
+Firefox; I don't know why. Something to do with scoping and `with{}`, I
+think. TypeTalk's code generation appears to cause Firefox's debugger to go
+nuts which makes it very hard to debug.
+
 
 Who?
 ----
