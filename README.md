@@ -31,6 +31,12 @@ Currently it's a pile of fairly nasty hacks flying in loose formation, but it
 does actually _work_. Mostly.
 
 
+Where?
+------
+
+It's [hosted on GitHub](https://github.com/davidgiven/typetalk).
+
+
 How?
 ----
 
