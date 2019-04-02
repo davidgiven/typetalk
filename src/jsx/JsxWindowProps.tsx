@@ -1,6 +1,7 @@
 class JsxWindowProps {
-    id?: string;
     title: string = "";
+    id?: string;
+    class?: string;
     style?: any;
     resizeable?: boolean;
     x?: string;

@@ -38,7 +38,7 @@ class QueryDialogue extends UiComponent<any> {
     }
 
     render(jsx, props) {
-        return <JsxWindow title={this.title}
+        return <JsxWindow title={this.title} class="centred"
             onClose={() => this.onCancel()}>
             <JsxVBox>
                 <div style={{ "max-width": "30em"}}>{this.question}</div>

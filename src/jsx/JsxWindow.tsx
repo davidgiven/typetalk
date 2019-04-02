@@ -57,7 +57,7 @@ class JsxWindow extends UiComponent<JsxWindowProps> {
             ...props.style
         };
 
-        return <JsxGrid style={style} class="window"
+        return <JsxGrid style={style} class={`window ${props.class}`}
             rows="1.5em auto"
             template={["header", "content"]}>
             <JsxDraggable style={{ "grid-area": "header" }}
